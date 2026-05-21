@@ -2,10 +2,10 @@
 <p align="center">Ticket Management Backend Platform - AT&T TDP 2026</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Java-21-orange?logo=openjdk" />
-  <img src="https://img.shields.io/badge/Spring%20Boot-3.4.2-brightgreen?logo=springboot" />
-  <img src="https://img.shields.io/badge/PostgreSQL-18-blue?logo=postgresql" />
-  <img src="https://img.shields.io/badge/Swagger-OpenAPI%203.0-85EA2D?logo=swagger" />
+  <img src="https://img.shields.io/badge/Java-21-orange" />
+  <img src="https://img.shields.io/badge/Spring%20Boot-3.4.2-brightgreen" />
+  <img src="https://img.shields.io/badge/PostgreSQL-18-blue" />
+  <img src="https://img.shields.io/badge/Swagger-OpenAPI%203.0-85EA2D" />
   <img src="https://img.shields.io/badge/Tests-62%20passing-success" />
 </p>
 
