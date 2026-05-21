@@ -1,5 +1,4 @@
 <h1 align="center">IssueFlow</h1>
-<p align="center">Ticket Management Backend Platform - AT&T TDP 2026</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Java-21-orange" />
