@@ -592,15 +592,13 @@ One catch though - I tried adding `@NotBlank` to the DTO field and it broke part
 
 ## Prompt 11 - System-Level Improvements
 
-Two architectural improvements identified by comparing the project against a peer implementation:
-
-### 12.1 - BFS Circular Dependency Detection
+### 11.1 - BFS Circular Dependency Detection
 
 `DependencyService.addDependency` validates self-reference, same-project, and duplicates - but does NOT detect transitive cycles. Adding A blocked-by B and B blocked-by C and then C blocked-by A would create an unresolvable deadlock graph.
 
 Fix: add `findBlockerIdsByTicketId(@Param("ticketId") Long ticketId)` to `TicketDependencyRepository` (JPQL: `SELECT d.blockedBy.id FROM TicketDependency d WHERE d.ticket.id = :ticketId`). Add private `wouldCreateCycle(Long ticketId, Long newBlockerId)` to `DependencyService`: BFS starting from `newBlockerId`, following the existing blocker chain at each step. If `ticketId` is reached, the proposed edge would close a loop - throw `IllegalArgumentException`. Add test: `addDependency_wouldCreateCycle_throwsIllegalArgumentException`.
 
-### 12.2 - Cascaded Soft Delete for Projects
+### 11.2 - Cascaded Soft Delete for Projects
 
 `ProjectService.softDeleteProject` sets `deletedAt` on the project but leaves all its tickets active. Similarly, `restoreProject` only restores the project record.
 
