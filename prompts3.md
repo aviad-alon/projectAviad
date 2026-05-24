@@ -102,17 +102,70 @@ Add Spring Security with stateless JWT authentication. The requirements:
 
 ---
 
-## Step 6 - Services
+## Step 6.1 - AuditLogService
 
-Implement all the business logic. Start with `AuditLogService` since every other service will call it. Then go through: `UserService`, `AuthService`, `ProjectService`, `TicketService`, `CommentService`, `DependencyService`, `AttachmentService`, `CsvService`, and finally `EscalationScheduler`.
+Before writing any other service, let's get the audit log in place since everything else will depend on it. Implement `AuditLogService` with a single public method: `log(String action, String entityType, Long entityId, User performedBy)`. It should set the timestamp to `LocalDateTime.now()` and save the entry to the database. The `performedBy` field should be nullable to support system-triggered actions like auto-assignment and escalation.
 
-The business rules to enforce:
+---
 
-- **Status transitions**: tickets can only move forward - TODO → IN_PROGRESS → IN_REVIEW → DONE. Any attempt to go backward should throw a 400
-- **Blocking dependencies**: closing a ticket (moving to DONE) is blocked if it still has open (non-DONE, non-deleted) blockers. Throw a 400 with a clear message
-- **Auto-assignment**: if no `assigneeId` is given on ticket creation, assign to the DEVELOPER with the fewest open tickets in that project. If there's a tie, pick the one with the lowest user ID to make it deterministic
-- **Mentions**: when a comment is saved or updated, parse all `@username` tokens from the content, look up each user by username (case-insensitive), and save them to the mentions table
-- **Escalation**: the scheduler runs every 60 seconds. For each ticket where `dueDate` is in the past and `status != DONE` and `deletedAt IS NULL`, bump the priority one level (LOW → MEDIUM → HIGH → CRITICAL) and set `isOverdue = true`. Log each escalation to the audit log
+## Step 6.2 - UserService & AuthService
+
+Now implement `UserService` and `AuthService`.
+
+`UserService` should handle full user lifecycle: register (validate that username and email are unique, hash the password, log `CREATE`), `getAllUsers`, `getUserById`, `updateUser` (partial - only apply non-null fields, skip email uniqueness check if it didn't change), `deleteUser`, and `getUserMentions(userId, page, pageSize)` which returns a paginated list of comments where the user was mentioned.
+
+`AuthService` needs three things: `login` - authenticate via Spring's `AuthenticationManager` and return a JWT, `logout` - add the token to an in-memory blacklist so it can't be reused, `getMe` - return the current user object given a username.
+
+---
+
+## Step 6.3 - ProjectService
+
+Implement `ProjectService` to handle the full project lifecycle:
+
+- `createProject` - validate the owner exists, save, log `CREATE`
+- `getProjectById` - throw `ResourceNotFoundException` if the project doesn't exist or is soft-deleted
+- `getAllActiveProjects` and `getDeletedProjects`
+- `updateProject` - partial update, only apply non-null fields
+- `softDeleteProject` - set `deletedAt = now()`, log `DELETE`
+- `restoreProject` - clear `deletedAt`, log `RESTORE`. Throw `IllegalStateException` if the project isn't currently deleted
+- `getWorkload(projectId)` - return a list of developers with their open ticket counts for that project, sorted ascending
+
+---
+
+## Step 6.4 - TicketService, DependencyService & AttachmentService
+
+Implement the core ticket features.
+
+**TicketService** - the most complex service, a few important rules:
+- On `createTicket`: if no `assigneeId` is provided, auto-assign to the DEVELOPER in that project with the fewest open tickets. If there's a tie, pick the lowest user ID. Log `AUTO_ASSIGN` with a null actor, then log `CREATE`
+- On `updateTicket`: enforce forward-only status transitions (TODO → IN_PROGRESS → IN_REVIEW → DONE). Throw a 400 for any backward move. Also block transitioning to DONE if the ticket still has open (non-DONE, non-deleted) blockers. If priority is manually changed, reset `isOverdue = false`
+- `softDeleteTicket` - set `deletedAt`, log `DELETE`
+- `restoreTicket` - clear `deletedAt`, log `RESTORE`, throw if not currently deleted
+
+**DependencyService** - validate no self-dependency, same project, no duplicates before saving. Log `CREATE` and `DELETE`.
+
+**AttachmentService** - store file bytes linked to a ticket, log `UPLOAD_ATTACHMENT`.
+
+---
+
+## Step 6.5 - CommentService
+
+Implement `CommentService` with live mention parsing. When a comment is added or updated, parse all `@username` tokens from the content using a regex, then look up each username case-insensitively. Found users get added to `mentionedUsers`, unknown usernames are silently skipped. On `updateComment`, fully replace the existing mention list with a freshly parsed one - don't append to it. Log `ADD_COMMENT` on create and `DELETE` on delete.
+
+---
+
+## Step 6.6 - CsvService & EscalationService
+
+Implement the last two services.
+
+**CsvService** (use Apache Commons CSV):
+- `exportTicketsToCsv(projectId, writer)` - write all active tickets for the project to CSV with columns: ID, Title, Status, Priority, Type, Assignee username
+- `importTicketsFromCsv(inputStream, projectId, currentUser)` - parse row by row, apply auto-assignment if no assignee column is provided. If a row fails for any reason, log the error and skip it - don't abort the whole import. Return a `CsvImportResult` with `successfulCount`, `failedCount`, and a list of error messages
+
+**EscalationService** (annotate with `@Scheduled(fixedRate = 60_000)` and `@Transactional`):
+- Fetch all overdue non-CRITICAL tickets (due date in the past, status != DONE, not deleted) and promote each one level: LOW → MEDIUM → HIGH → CRITICAL. Set `isOverdue = true` when a ticket reaches CRITICAL. Log `AUTO_ESCALATE` with null actor for each one
+- Also fetch any CRITICAL tickets where `isOverdue` is still false and set the flag
+- Remember to add `@EnableScheduling` to the main application class
 
 ---
 
