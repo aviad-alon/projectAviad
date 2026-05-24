@@ -46,6 +46,15 @@ public class SecurityConfig {
                     .anyRequest().authenticated()
             )
 
+            // Return 401 (not 403) for requests with missing/invalid token
+            .exceptionHandling(ex -> ex
+                    .authenticationEntryPoint((request, response, authException) -> {
+                        response.setStatus(401);
+                        response.setContentType("application/json");
+                        response.getWriter().write(
+                            "{\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}");
+                    }))
+
             // Wire in the JWT filter before Spring's default auth filter
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
