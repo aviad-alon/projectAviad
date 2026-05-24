@@ -18,6 +18,23 @@ Built with Java 21 and Spring Boot. 69 unit tests, no Spring context.
 
 ---
 
+## Functionality
+
+- **Users API** - manages user identities behind ticket assignments and comments.
+- **Projects API** - manages top-level containers that group related tickets.
+- **Tickets API** - manages the core work items (issues) tracked in the system.
+- **Comments API** - manages user comments on tickets.
+- **Audit Log API** - read-only log of all state-changing actions in the system.
+- **Dependencies API** - manages ticket-to-ticket blocker relationships.
+- **Attachments API** - manages file attachments on tickets.
+- **Export/Import API** - supports bulk ticket export and import via CSV.
+- **Soft Delete API** - tickets and projects are soft-deleted and can be restored by ADMIN users.
+- **Mentions API** - `@username` mentions in comments are validated, persisted, and retrievable per user.
+- **Auto-Escalation** - a background scheduler automatically escalates ticket priority when a due date is exceeded.
+- **Auto-Assignment** - tickets without an explicit assignee are automatically assigned to the least-loaded DEVELOPER in the project.
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
