@@ -253,3 +253,4 @@ See [prompts.md](prompts.md) for the full prompt log and working methodology.
 - **Claude Code (claude-sonnet-4-6)** - implementation, testing, architecture
 - **Google Gemini 2.5 Pro & Flash** - research, conceptual questions, prompt refinement
 
+
