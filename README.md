@@ -8,7 +8,6 @@
 
 IssueFlow is a production-grade REST API for project and issue tracking, built with Java 21 and Spring Boot 3.4.2. The system covers the full lifecycle of tickets, projects, users, comments, dependencies, attachments, and audit logs, with JWT-based authentication throughout.
 
-> **Interactive API docs:** start the server and open `http://localhost:8080/swagger-ui/index.html`
 > **Setup & run instructions:** see [run.md](run.md)
 
 ---
@@ -22,7 +21,6 @@ IssueFlow is a production-grade REST API for project and issue tracking, built w
 | Persistence | Spring Data JPA / Hibernate 6, PostgreSQL |
 | Security | Spring Security + JJWT 0.12.6 (stateless JWT) |
 | Validation | Jakarta Bean Validation (`@Valid`, `@NotBlank`, `@Size`) |
-| API Docs | springdoc-openapi 2.8.3 (Swagger UI) |
 | CSV | Apache Commons CSV 1.10.0 |
 | Testing | JUnit 5, Mockito (62 unit tests, zero Spring context) |
 | Build | Maven Wrapper (`./mvnw`) |

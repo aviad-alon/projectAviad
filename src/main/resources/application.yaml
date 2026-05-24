@@ -26,9 +26,3 @@ spring:
 jwt:
   secret: issueflow-super-secret-key-must-be-32-chars-minimum-2026
 
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html        # redirect target: /swagger-ui/index.html
-    try-it-out-enabled: true      # enable "Try it out" on every endpoint by default
-  api-docs:
-    path: /v3/api-docs

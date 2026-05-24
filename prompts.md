@@ -590,20 +590,7 @@ One catch though - I tried adding `@NotBlank` to the DTO field and it broke part
 
 ---
 
-## Prompt 11 - Swagger / OpenAPI Interactive Documentation
-
-Add interactive API documentation to the project using springdoc-openapi.
-
-1. Add the dependency `springdoc-openapi-starter-webmvc-ui:2.8.3` to `pom.xml`.
-2. Create `OpenApiConfig.java` in a new `config/` package. Configure the OpenAPI bean with: title "IssueFlow API", description with auth instructions (create user, login, authorize), version "1.0.0", contact name "Aviad Alon". Apply a global `bearerAuth` JWT security scheme so every secured endpoint shows the lock icon in Swagger UI.
-3. Update `SecurityConfig` to permit unauthenticated access to `/swagger-ui.html`, `/swagger-ui/**`, and `/v3/api-docs/**`.
-4. Add springdoc configuration to `application.yaml`: set `swagger-ui.path`, `try-it-out-enabled: true`, and `api-docs.path`. Change `sql.init.mode` from `always` to `never` (Hibernate `ddl-auto: update` manages the schema; `schema.sql` is documentation-only, and Spring Boot 3 throws an error on comment-only SQL init scripts).
-
-Swagger UI accessible at `http://localhost:8080/swagger-ui/index.html`.
-
----
-
-## Prompt 12 - System-Level Improvements
+## Prompt 11 - System-Level Improvements
 
 Two architectural improvements identified by comparing the project against a peer implementation:
 

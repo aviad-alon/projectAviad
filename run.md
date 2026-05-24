@@ -80,30 +80,7 @@ The server starts on **http://localhost:8080**.
 
 ---
 
-## 5. Explore the API
-
-Once the application is running, open the interactive API documentation in your browser:
-
-```
-http://localhost:8080/swagger-ui/index.html
-```
-
-**How to authenticate:**
-
-1. `POST /api/users` - create a user account
-2. `POST /api/auth/login` - obtain a JWT access token
-3. Click **Authorize** at the top of the Swagger UI and paste the token
-4. All secured endpoints are now accessible directly from the browser
-
-The raw OpenAPI spec is available at:
-
-```
-http://localhost:8080/v3/api-docs
-```
-
----
-
-## 6. Run the Tests
+## 5. Run the Tests
 
 ```bash
 ./mvnw test
@@ -128,7 +105,7 @@ To run a specific test class:
 
 ---
 
-## 7. Configuration
+## 6. Configuration
 
 All configuration is in `src/main/resources/application.yaml`.
 
@@ -141,7 +118,7 @@ All configuration is in `src/main/resources/application.yaml`.
 
 ---
 
-## 8. Project Structure
+## 7. Project Structure
 
 ```
 issueflow-java/
@@ -155,7 +132,6 @@ issueflow-java/
     - repository/      Spring Data JPA repositories
     - security/        JWT authentication and filter chain
     - exception/       Custom exceptions and global error handler
-    - config/          OpenAPI configuration
     - scheduler/       Auto-escalation scheduler
   - test/              Unit tests (Mockito, no Spring context)
   - resources/

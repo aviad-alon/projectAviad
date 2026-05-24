@@ -42,12 +42,6 @@ public class SecurityConfig {
                     // Public endpoints - no token required
                     .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                    // Swagger UI and OpenAPI spec - publicly accessible
-                    .requestMatchers(
-                            "/swagger-ui.html",
-                            "/swagger-ui/**",
-                            "/v3/api-docs/**"
-                    ).permitAll()
                     // Everything else requires a valid JWT
                     .anyRequest().authenticated()
             )
