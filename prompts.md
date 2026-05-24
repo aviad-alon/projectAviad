@@ -14,284 +14,116 @@ This file documents the prompts used throughout the development of the IssueFlow
 
 ## Prompt 0 - Project Analysis & Implementation Planning
 
-I have a homework assignment for the AT&T TDP 2026 program located in my current working directory. The project is called IssueFlow - a ticket management backend platform.
+I have a homework assignment for the AT&T TDP 2026 program in my current working directory - a ticket management backend called IssueFlow.
 
-Read and analyze all project files - including the PDF requirements document, both the issueflow-java/ and issueflow-typescript/ skeleton projects, all READMEs, pom.xml, package.json, source files, and configuration files.
+Read and analyze all project files (the PDF requirements, both skeleton projects, READMEs, pom.xml, package.json, source files, and configuration). Then:
 
-Then do the following:
-
-1. Explain the assignment clearly - what needs to be built, what APIs are required, what special features are needed (soft delete, auto-assignment, auto-escalation, mentions, JWT auth, CSV import/export), and what is already provided vs. what needs to be implemented.
-
-2. Create a 3-day implementation plan ordered by dependencies, where each day focuses on a distinct layer or feature set - allowing me to go deep into each topic before moving on. I chose to implement in Java (Spring Boot).
-
-3. Generate a PDF guide in English covering: a plain-English explanation of the assignment, the full system architecture diagram, package/folder hierarchy, all required API endpoints with descriptions, step-by-step build order, and key technical tips and Spring Boot annotation reference.
+1. Explain the assignment - what needs to be built, what APIs are required, what special features are needed (soft delete, auto-assignment, auto-escalation, mentions, JWT auth, CSV import/export), and what is already provided vs. what needs to be implemented.
+2. Create a 3-day implementation plan ordered by dependencies, where each day focuses on a distinct layer or feature set. I'll implement in Java (Spring Boot).
+3. Generate a PDF guide in English covering: a plain-English explanation of the assignment, full system architecture diagram, package/folder hierarchy, all required API endpoints, step-by-step build order, and key Spring Boot technical tips.
 
 ---
 
 ## Prompt 0.5 - Architecture Strategy Exploration (Vertical Slicing)
 
-You are a Senior Java and Spring Boot Software Architect. We are building the "IssueFlow" backend using the existing skeleton in `issueflow-java/`.
+We're building the IssueFlow backend using the skeleton in `issueflow-java/`, following a "Vertical Slicing" strategy - one feature end-to-end before moving to the next.
 
-To ensure stability, we will follow a strict "Vertical Slicing" development strategy. We will implement one feature end-to-end (from the database layer up to the REST Controller) before moving on to other entities.
+Start with the first slice: User Management & Authentication. Generate code ONLY for:
 
-Let's start with the first slice: User Management & Authentication.
+1. `entity/User.java` - JPA entity mapped to PostgreSQL.
+2. `repository/UserRepository.java` - Spring Data JPA interface.
+3. `dto/` - Request/Response DTOs for user registration.
+4. `service/UserService.java` - business logic for user creation (password hashing placeholder).
+5. `controller/UserController.java` - REST endpoints for user registration.
 
-Please guide me and generate the required code ONLY for the User entity components, following the package structure specified in our architecture:
-
-1. `entity/User.java`: Create the JPA entity with basic fields (id, username, email, password, role, dates) mapped to PostgreSQL.
-2. `repository/UserRepository.java`: Create the Spring Data JPA interface.
-3. `dto/`: Create the necessary Request/Response DTOs for User registration (e.g., `CreateUserRequest.java`).
-4. `service/UserService.java`: Implement the business logic for user creation (including a placeholder or basic layout for password hashing).
-5. `controller/UserController.java`: Create the REST endpoints for registering a user.
-
-Rules for this interaction:
-- Do NOT touch other entities like Project, Ticket, or Comments yet.
-- Adhere strictly to the existing Spring Boot configuration and properties.
-- Do not write the full JWT security filter logic yet; focus purely on the functional User CRUD/Registration flow first.
-
-Please analyze the existing skeleton structure and provide the steps and code to implement this first vertical slice for the User component.
+Don't touch Project, Ticket, or Comments yet. Don't write the full JWT security filter - focus on the User CRUD flow first.
 
 ---
 
 ## Step 1 - Database Schema
 
-You are a Senior PostgreSQL Database Architect. I am building the "IssueFlow" backend system. We are following a strict Horizontal Slicing development strategy.
+Generate the full `schema.sql` with all 8 required tables in PostgreSQL syntax:
 
-Our first milestone is to create the complete database schema.
+1. **`users`**: id, username, email, full_name, role (`'DEVELOPER'` or `'ADMIN'`), password.
+2. **`projects`**: id, name, description, owner_id (FK to users), deleted_at (nullable; null = active).
+3. **`tickets`**: id, title, status (`'TODO'`, `'IN_PROGRESS'`, `'IN_REVIEW'`, `'DONE'`), priority (`'LOW'`, `'MEDIUM'`, `'HIGH'`, `'CRITICAL'`), type, project_id (FK), assignee_id (FK, nullable), due_date, deleted_at (nullable), is_overdue (BOOLEAN NOT NULL DEFAULT FALSE).
+4. **`comments`**: id, ticket_id (FK), author_id (FK), content, created_at.
+5. **`comment_mentions`**: comment_id (FK), user_id (FK). Join table for @username references.
+6. **`ticket_dependencies`**: ticket_id (FK), blocked_by_id (FK). Ticket A is blocked by Ticket B.
+7. **`attachments`**: id, ticket_id (FK), filename, content_type, data (`bytea`).
+8. **`audit_logs`**: id, action (CHECK constraint), entity_type, entity_id, performed_by (FK, nullable for system actions), timestamp.
 
-Please write the full `schema.sql` file containing all 8 required tables. Use PostgreSQL syntax. Here are the exact requirements for the tables based on the system architecture:
-
-1. **`users`**: id, username, email, full_name, role (must be `'DEVELOPER'` or `'ADMIN'`), password.
-2. **`projects`**: id, name, description, owner_id (FK to users), deleted_at (nullable; null means active).
-3. **`tickets`**: id, title, status (must be `'TODO'`, `'IN_PROGRESS'`, `'IN_REVIEW'`, or `'DONE'`), priority (must be `'LOW'`, `'MEDIUM'`, `'HIGH'`, or `'CRITICAL'`), type, project_id (FK to projects), assignee_id (FK to users, nullable), due_date, deleted_at (nullable), is_overdue (BOOLEAN NOT NULL DEFAULT FALSE).
-4. **`comments`**: id, ticket_id (FK to tickets), author_id (FK to users), content, created_at.
-5. **`comment_mentions`**: comment_id (FK to comments), user_id (FK to users). This is a join table for @username references.
-6. **`ticket_dependencies`**: ticket_id (FK to tickets), blocked_by_id (FK to tickets). Ticket A is blocked by Ticket B.
-7. **`attachments`**: id, ticket_id (FK to tickets), filename, content_type, data (store file binary as `bytea`).
-8. **`audit_logs`**: id, action (CHECK constraint listing all valid values), entity_type, entity_id, performed_by (FK to users, nullable for system actions), timestamp. This is a read-only log.
-
-Requirements for the SQL script:
-- Add appropriate `PRIMARY KEY` and `FOREIGN KEY` constraints.
-- Ensure referential integrity (e.g., what happens if a project is deleted?).
-- Use `TIMESTAMP` for date/time columns (like `deleted_at` and `timestamp`).
-
-Do NOT generate any Java code at this stage. ONLY output the raw `schema.sql` code.
+Add PK/FK constraints and referential integrity. Use `TIMESTAMP` for date/time columns. Output raw SQL only.
 
 ---
 
 ## Step 2 - Entities & Enums
 
-You are a Senior Java and Hibernate/JPA Architect. We are continuing the development of the "IssueFlow" backend using the Horizontal Slicing strategy.
-
 We successfully completed the database schema (Step 1). Now, we are moving to **Step 2: Creating all Enums and JPA Entities** under the packages `com.att.tdp.issueflow.enums` and `com.att.tdp.issueflow.entity`.
 
-Please generate the Java code for all the required Enums and Entities based on the following structural specifications:
+Generate all Enums under `com.att.tdp.issueflow.enums` and all JPA Entities under `com.att.tdp.issueflow.entity`. Use Lombok (`@Data`, `@NoArgsConstructor`, `@AllArgsConstructor`, `@Builder`) and standard JPA annotations. Enum fields must use `@Enumerated(EnumType.STRING)`.
 
-### Part 1: Enums (`com.att.tdp.issueflow.enums`)
-1. **UserRole**: DEVELOPER, ADMIN
-2. **TicketStatus**: TODO, IN_PROGRESS, IN_REVIEW, DONE
-3. **TicketPriority**: LOW, MEDIUM, HIGH, CRITICAL
-4. **TicketType**: BUG, FEATURE, TECHNICAL
+**Enums:** `UserRole` (DEVELOPER, ADMIN), `TicketStatus` (TODO, IN_PROGRESS, IN_REVIEW, DONE), `TicketPriority` (LOW, MEDIUM, HIGH, CRITICAL), `TicketType` (BUG, FEATURE, TECHNICAL).
 
-### Part 2: JPA Entities (`com.att.tdp.issueflow.entity`)
-Please use Lombok (`@Data`, `@NoArgsConstructor`, `@AllArgsConstructor`, `@Builder`) and standard JPA annotations (`@Entity`, `@Table`, `@Id`, `@GeneratedValue(strategy = GenerationType.IDENTITY)`, `@Column`). All Enum fields must be annotated with `@Enumerated(EnumType.STRING)`.
+**Entities:**
+1. **User.java** - id (PK), username (unique), email (unique), fullName, role, password.
+2. **Project.java** - id, name, description, deletedAt (nullable). `@ManyToOne` owner with `FetchType.LAZY`.
+3. **Ticket.java** - id, title, status, priority, type, dueDate, deletedAt, isOverdue as `@Column(name = "is_overdue", nullable = false)` - must be a real DB column, NOT `@Transient`. `@ManyToOne` project and nullable assignee. Add `@Version` for optimistic locking.
+4. **Comment.java** - id, content, createdAt. `@ManyToOne` ticket and author. `@ManyToMany` mentionedUsers via `comment_mentions` join table. Add `@Version`.
+5. **TicketDependency.java** - Composite PK via `@IdClass(TicketDependencyId.class)`. `@ManyToOne` ticket and blockedBy. Also generate `TicketDependencyId.java` (Serializable, fields: Long ticket, Long blockedBy).
+6. **Attachment.java** - id, filename, contentType, data (`@Column(columnDefinition = "BYTEA")`). `@ManyToOne` ticket.
+7. **AuditLog.java** - id, action, entityType, entityId, timestamp. Nullable `@ManyToOne` performedBy (null for system actions).
 
-Implement the entities with these exact specifications and relationships:
-
-1. **User.java**
-   - Fields: `Long id` (PK), `String username` (Unique, non-nullable), `String email` (Unique, non-nullable), `String fullName`, `UserRole role`, `String password` (non-nullable).
-
-2. **Project.java**
-   - Fields: `Long id` (PK), `String name` (non-nullable), `String description`, `LocalDateTime deletedAt` (nullable, for soft-delete).
-   - Relationship: `@ManyToOne` with User (`owner`) -> Configure with fetch = FetchType.LAZY.
-
-3. **Ticket.java**
-   - Fields: `Long id` (PK), `String title` (non-nullable), `TicketStatus status`, `TicketPriority priority`, `TicketType type`, `LocalDateTime dueDate`, `LocalDateTime deletedAt` (nullable), `boolean isOverdue` stored as `@Column(name = "is_overdue", nullable = false)` - this must be a real database column, NOT a `@Transient` computed field.
-   - Relationships:
-     - `@ManyToOne` with Project (`project`).
-     - `@ManyToOne` with User (`assignee`) -> Nullable.
-   - Add `@Version` for optimistic locking.
-
-4. **Comment.java**
-   - Fields: `Long id` (PK), `String content` (non-nullable), `LocalDateTime createdAt`.
-   - Relationships:
-     - `@ManyToOne` with Ticket (`ticket`).
-     - `@ManyToOne` with User (`author`).
-     - `@ManyToMany` with User (`comment_mentions` join table) to track users @mentioned in this comment.
-   - Add `@Version` for optimistic locking.
-
-5. **TicketDependency.java**
-   - Composite PK via `@IdClass(TicketDependencyId.class)`.
-   - Tracks blockers: `ticket` (`@ManyToOne`) blocked by `blockedBy` (`@ManyToOne`).
-   - Also create `TicketDependencyId.java` implementing `Serializable` with fields `Long ticket` and `Long blockedBy`.
-
-6. **Attachment.java**
-   - Fields: `Long id` (PK), `String filename`, `String contentType`, `byte[] data` (Annotate with `@Lob` / `@Column(columnDefinition = "BYTEA")` for PostgreSQL binary storage).
-   - Relationship: `@ManyToOne` with Ticket (`ticket`).
-
-7. **AuditLog.java**
-   - Fields: `Long id` (PK), `String action`, `String entityType`, `Long entityId`, `LocalDateTime timestamp`.
-   - Relationship: `@ManyToOne` with User (`performedBy`) -> Nullable (system actions use null).
-
-### Rules for generation:
-- Do NOT create any DTOs, Repositories, Services, or Controllers yet. Focus 100% on the data layer mappings.
-- Include proper Jackson/JSON annotations if needed to prevent infinite recursion loops on bidirectional relationships (e.g., `@JsonIgnoreProperties`).
-- Ensure all entity class names and package names perfectly match the structural layout.
-
-Please write clean, production-ready Java 21 files for each of these classes.
+No DTOs, Repositories, Services, or Controllers at this stage. Add `@JsonIgnoreProperties` where needed to prevent circular serialization.
 
 ---
 
 ## Step 3 - DTOs (Request & Response Objects)
 
-You are a Senior Java and Spring Boot Architect. We are continuing the "IssueFlow" backend project following our strict Horizontal Slicing strategy.
-
 We have successfully completed Step 1 (DB Schema) and Step 2 (Entities). Now, please execute **Step 3: All DTOs**.
 
-Generate the Data Transfer Objects (DTOs) in the `com.att.tdp.issueflow.dto` package.
+Generate all DTOs in `com.att.tdp.issueflow.dto`. Use Lombok. Use `jakarta.validation.constraints.*` on all Request objects. Never expose JPA entities in DTOs - use IDs instead.
 
-Requirements:
-- Use Lombok (`@Data`, `@NoArgsConstructor`, `@AllArgsConstructor`, `@Builder`) for clean code.
-- Use `jakarta.validation.constraints.*` (`@NotBlank`, `@NotNull`, `@Email`) for input validation on all Request objects.
-- Security & Decoupling: Do NOT expose internal JPA Entities inside the DTOs. Whenever a relationship is needed, use the ID (e.g., `Long projectId`) instead of the Entity object.
+**User:** `CreateUserRequest` (username, email, fullName, role, password - all `@NotBlank`/`@NotNull`), `UpdateUserRequest` (all optional for PATCH), `UserResponse` (id, username, email, fullName, role - no password).
 
-Please generate the following Java classes based on the API specifications:
+**Auth:** `LoginRequest` (username, password), `LoginResponse` (token).
 
-1. **User DTOs**:
-   - `CreateUserRequest.java`: username (@NotBlank), email (@NotBlank, @Email), fullName (@NotBlank), role (@NotNull), password (@NotBlank).
-   - `UpdateUserRequest.java`: email (@Email), fullName, role. (All fields are optional for partial PATCH updates).
-   - `UserResponse.java`: id, username, email, fullName, role. (Do NOT include the password).
+**Project:** `CreateProjectRequest` (name `@NotBlank`, description, ownerId `@NotNull`), `UpdateProjectRequest` (name, description - optional), `ProjectResponse` (id, name, description, ownerId), `WorkloadEntry` (userId, username, openTicketCount).
 
-2. **Auth DTOs**:
-   - `LoginRequest.java`: username (@NotBlank), password (@NotBlank).
-   - `LoginResponse.java`: token (String).
+**Ticket:** `CreateTicketRequest` (title `@NotBlank`, priority/type `@NotNull`, projectId `@NotNull`, assigneeId and dueDate nullable), `UpdateTicketRequest` (all optional for PATCH), `AddDependencyRequest` (blockedBy `@NotNull`), `TicketResponse` (id, title, status, priority, type, projectId, assigneeId, dueDate, isOverdue).
 
-3. **Project DTOs**:
-   - `CreateProjectRequest.java`: name (@NotBlank), description, ownerId (@NotNull).
-   - `UpdateProjectRequest.java`: name, description. (Used for PATCH /projects/:id, fields are optional for partial updates).
-   - `ProjectResponse.java`: id, name, description, ownerId.
-   - `WorkloadEntry.java`: userId, username, openTicketCount.
+**Comment:** `CreateCommentRequest` (authorId `@NotNull`, content `@NotBlank`), `UpdateCommentRequest` (content `@NotBlank`), `CommentResponse` (id, ticketId, authorId, content, createdAt, `List<MentionedUserDto>`), `MentionedUserDto` (id, username, fullName - include static `from(User)` factory), `MentionsPageResponse` (content, pageNumber, totalElements, totalPages).
 
-4. **Ticket DTOs**:
-   - `CreateTicketRequest.java`: title (@NotBlank), priority (@NotNull), type (@NotNull), projectId (@NotNull), assigneeId (nullable), dueDate (nullable).
-   - `UpdateTicketRequest.java`: title, description, status, priority, assigneeId, dueDate. (All optional for PATCH).
-   - `AddDependencyRequest.java`: blockedBy (@NotNull). (Used for POST /tickets/:id/dependencies to link a blocker ticket).
-   - `TicketResponse.java`: id, title, status, priority, type, projectId, assigneeId, dueDate, isOverdue (boolean).
-
-5. **Comment DTOs**:
-   - `CreateCommentRequest.java`: authorId (@NotNull), content (@NotBlank).
-   - `UpdateCommentRequest.java`: content (@NotBlank).
-   - `CommentResponse.java`: id, ticketId, authorId, content, createdAt, `List<MentionedUserDto> mentionedUsers`.
-   - `MentionedUserDto.java`: id, username, fullName. Include a static `from(User user)` factory method.
-   - `MentionsPageResponse.java`: content (List of CommentResponse), pageNumber (int), totalElements (long), totalPages (int).
-
-6. **Special API DTOs**:
-   - `CsvImportResult.java`: successfulCount (int), failedCount (int), errors (List<String>).
-
-Rules for this interaction:
-- Output ONLY the Java code for these DTO classes.
-- Do NOT generate any Repositories, Services, or Controllers at this stage. We must finish the DTO layer first.
+**Other:** `CsvImportResult` (successfulCount, failedCount, errors `List<String>`).
 
 ---
 
 ## Step 4 - Repositories (Data Access Layer)
 
-You are a Senior Java and Spring Boot Architect. We are continuing the "IssueFlow" backend project following our strict Horizontal Slicing strategy.
-
 We have completed Step 1 (DB Schema), Step 2 (Entities), and Step 3 (DTOs). Now, please execute **Step 4: All Repositories**.
 
-Generate the Spring Data JPA repository interfaces in the `com.att.tdp.issueflow.repository` package.
+Generate all Spring Data JPA repository interfaces in `com.att.tdp.issueflow.repository`. Each extends `JpaRepository`. Use derived method names where possible; use `@Query` (JPQL) only when necessary.
 
-Requirements:
-- Each interface must extend `org.springframework.data.jpa.repository.JpaRepository<EntityName, Long>`.
-- Use Spring Data JPA naming conventions for automatic query generation where possible.
-- Use `@Query` with JPQL only when a query is too complex for method naming.
-- Ensure proper imports (`java.util.List`, `java.util.Optional`, `org.springframework.data.domain.Pageable`, etc.).
-
-Please generate the following interfaces with the required custom methods:
-
-1. **UserRepository.java**:
-   - `Optional<User> findByUsername(String username);`
-   - `Optional<User> findByUsernameIgnoreCase(String username);`
-   - `boolean existsByUsername(String username);`
-   - `boolean existsByEmail(String email);`
-
-2. **ProjectRepository.java**:
-   - `List<Project> findByDeletedAtIsNull();` (Fetch active projects)
-   - `List<Project> findByDeletedAtIsNotNull();` (Fetch soft-deleted projects)
-   - `Optional<Project> findByIdAndDeletedAtIsNull(Long id);`
-
-3. **TicketRepository.java**:
-   - `List<Ticket> findByProjectIdAndDeletedAtIsNull(Long projectId);` (Active tickets in a project)
-   - `List<Ticket> findByProjectIdAndDeletedAtIsNotNull(Long projectId);` (Soft-deleted tickets in a project)
-   - `Optional<Ticket> findByIdAndDeletedAtIsNull(Long id);`
-   - `@Query` to count open tickets per assignee in a project - returns `List<Object[]>` where each row is `[assigneeId, count]`. (Used for workload calculation and auto-assignment).
-   - `@Query` to find overdue tickets for escalation: `dueDate < CURRENT_TIMESTAMP AND status != DONE AND priority != CRITICAL AND deletedAt IS NULL`. (Used by the escalation scheduler - excludes CRITICAL since those are already at max priority).
-   - `@Query` to find already-CRITICAL overdue tickets where `isOverdue = false`. (Used for the second step of escalation - flag-only update).
-
-4. **CommentRepository.java**:
-   - `List<Comment> findByTicketId(Long ticketId);`
-   - `@Query` to find comments where a specific User ID was mentioned (joining the many-to-many relationship). Support pagination by adding a `Pageable` parameter and returning a `Page<Comment>`.
-
-5. **AuditLogRepository.java**:
-   - `List<AuditLog> findByEntityTypeAndEntityIdOrderByTimestampDesc(String entityType, Long entityId);`
-
-6. **AttachmentRepository.java**:
-   - `List<Attachment> findByTicketId(Long ticketId);`
-
-7. **TicketDependencyRepository.java**:
-   - `List<TicketDependency> findByTicketId(Long ticketId);`
-   - `boolean existsByTicketIdAndBlockedById(Long ticketId, Long blockedById);`
-
-Rules for this interaction:
-- Output ONLY the Java interface code for these Repositories.
-- Do NOT generate any Services, Controllers, or DTOs. We must finish the data access layer completely before moving forward.
+1. **UserRepository**: `findByUsername`, `findByUsernameIgnoreCase`, `existsByUsername`, `existsByEmail`.
+2. **ProjectRepository**: `findByDeletedAtIsNull`, `findByDeletedAtIsNotNull`, `findByIdAndDeletedAtIsNull`.
+3. **TicketRepository**: `findByProjectIdAndDeletedAtIsNull`, `findByProjectIdAndDeletedAtIsNotNull`, `findByIdAndDeletedAtIsNull`. Plus `@Query` to count open tickets per assignee in a project (returns `List<Object[]>` with `[assigneeId, count]`). Plus `@Query` for overdue non-CRITICAL tickets (`dueDate < NOW AND status != DONE AND priority != CRITICAL AND deletedAt IS NULL`). Plus `@Query` for already-CRITICAL overdue tickets where `isOverdue = false`.
+4. **CommentRepository**: `findByTicketId`. Plus `@Query` to find comments mentioning a specific user (joining the many-to-many), with `Pageable` returning `Page<Comment>`.
+5. **AuditLogRepository**: `findByEntityTypeAndEntityIdOrderByTimestampDesc`.
+6. **AttachmentRepository**: `findByTicketId`.
+7. **TicketDependencyRepository**: `findByTicketId`, `existsByTicketIdAndBlockedById`.
 
 ---
 
 ## Step 5 - JWT Security Layer
 
-You are a Senior Spring Security Expert. We are continuing the "IssueFlow" backend project following our Horizontal Slicing strategy.
-
 We have completed Steps 1 through 4 (Schema, Entities, DTOs, Repositories). Now, we must implement **Step 5: JWT Security Layer** before touching the business logic.
 
-Please generate the required security configurations and classes.
+Add Spring Security with stateless JWT authentication. Provide pom.xml snippets for `spring-boot-starter-security` and JJWT (`jjwt-api`, `jjwt-impl`, `jjwt-jackson`). Generate these classes in `com.att.tdp.issueflow.security`:
 
-### Task 1: `pom.xml` Dependencies
-Provide the exact XML snippets to add `spring-boot-starter-security` and the JJWT libraries (`jjwt-api`, `jjwt-impl`, `jjwt-jackson`) to the pom.xml file.
-
-### Task 2: Implement the Security Classes (in `com.att.tdp.issueflow.security`)
-Generate the following classes using Spring Security 3.0+ standards (Spring Boot 3 / Java 21):
-
-1. **`JwtUtil.java`**:
-   - Secret key injected via `@Value("${jwt.secret}")`.
-   - Methods: `generateToken(String username)`, `extractUsername(String token)`, and `validateToken(String token, UserDetails userDetails)`.
-   - Token expiration should be set to 24 hours.
-
-2. **`JwtAuthFilter.java`**:
-   - Must extend `OncePerRequestFilter`.
-   - Intercept the incoming HTTP request, extract the `Authorization` header, and check if it starts with `"Bearer "`.
-   - If a valid token is found, use `JwtUtil` to extract the username, load the user details, and set the `UsernamePasswordAuthenticationToken` in the `SecurityContextHolder`.
-   - Skip if the token is found in a logout blocklist.
-
-3. **`SecurityConfig.java`**:
-   - Annotate with `@Configuration` and `@EnableWebSecurity`.
-   - Define a `SecurityFilterChain` bean.
-   - Disable CSRF (as this is a stateless REST API).
-   - Set session management to `SessionCreationPolicy.STATELESS`.
-   - **Route Rules**:
-     - Allow public, unauthenticated access to `POST /api/users` (registration) and `POST /api/auth/login` (login).
-     - Require authentication for ANY other request (`anyRequest().authenticated()`).
-   - Add the `JwtAuthFilter` to the filter chain *before* `UsernamePasswordAuthenticationFilter`.
-   - Provide beans for `AuthenticationManager` and `PasswordEncoder` (use `BCryptPasswordEncoder`).
-
-4. **`CustomUserDetailsService.java`**:
-   - Implements `UserDetailsService`.
-   - Loads user by username from `UserRepository`, maps role to `GrantedAuthority`.
-
-Rules for this interaction:
-- Do NOT generate any REST Controllers or Business Services yet.
-- Focus exclusively on wiring up the JWT infrastructure perfectly.
+1. **`JwtUtil.java`** - Secret key from `@Value("${jwt.secret}")`. Methods: `generateToken(username)`, `extractUsername(token)`, `validateToken(token, userDetails)`. Expiration: 24 hours.
+2. **`JwtAuthFilter.java`** - Extends `OncePerRequestFilter`. Extracts `Authorization: Bearer` header, validates via `JwtUtil`, sets `UsernamePasswordAuthenticationToken` in `SecurityContextHolder`. Skips if token is in logout blocklist.
+3. **`SecurityConfig.java`** - `@Configuration @EnableWebSecurity`. Stateless sessions, CSRF disabled. Public: `POST /api/users`, `POST /api/auth/login`. Everything else requires authentication. Registers `JwtAuthFilter` before `UsernamePasswordAuthenticationFilter`. Provides `AuthenticationManager` and `BCryptPasswordEncoder` beans.
+4. **`CustomUserDetailsService.java`** - Implements `UserDetailsService`. Loads user by username, maps role to `GrantedAuthority`.
 
 ---
 
@@ -299,260 +131,128 @@ Rules for this interaction:
 
 ### 6.1
 
-You are a Senior Java Developer. We are starting "Step 6: All Services" for IssueFlow using a step-by-step approach.
-
-Let's implement the foundational logging layer first: `AuditLogService.java` in the `com.att.tdp.issueflow.service` package.
-
-Requirements:
-- Create an `AuditLogService` class annotated with `@Service`.
-- Inject `AuditLogRepository`.
-- Implement a single public method: `public void log(String action, String entityType, Long entityId, User performedBy)`.
-- This method should create a new `AuditLog` entity, set the timestamp to `LocalDateTime.now()`, and save it to the database.
-- Ensure the method handles cases where `performedBy` might be null (e.g., system actions like auto-escalation or auto-assignment).
-
-Output ONLY the complete implementation for `AuditLogService.java`. Do not create any other services yet.
+Let's implement the foundational logging layer first: `AuditLogService.java`. Single public method: `log(String action, String entityType, Long entityId, User performedBy)`. Sets timestamp to `LocalDateTime.now()`, saves to DB. Handle null `performedBy` for system actions.
 
 ### 6.2
 
 Next, let's implement the user management and authentication logic: `UserService.java` and `AuthService.java`.
 
-Requirements:
+**UserService** (implements `UserDetailsService`):
+- Registration: validate username/email uniqueness (throw `ConflictException` if taken), hash password, save, log `"CREATE"`.
+- Also: `getAllUsers()`, `getUserById(id)`, `updateUser(id, request)` (partial update - skip email uniqueness check if unchanged), `deleteUser(id)`, `getUserMentions(userId, page, pageSize)` (paginated).
 
-1. `UserService.java`:
-   - Must implement Spring Security's `UserDetailsService` interface and override `loadUserByUsername(String username)`.
-   - Implement user registration: Accept `CreateUserRequest`, check if the username/email already exists (throw `ConflictException` if they do), hash the password using `PasswordEncoder`, save the new `User` entity, and trigger `AuditLogService.log` with the action `"CREATE"`.
-   - Also implement: `getAllUsers()`, `getUserById(Long id)`, `updateUser(Long id, UpdateUserRequest)` (partial update - skip email uniqueness check if email is unchanged), `deleteUser(Long id)`, `getUserMentions(Long userId, int page, int pageSize)` (paginated).
-
-2. `AuthService.java`:
-   - Implement `login(LoginRequest)`: Use `AuthenticationManager` to authenticate the user. If successful, generate a JWT token using `JwtUtil` and return a `LoginResponse` containing the token.
-   - Implement `logout(String token)`: add token to an in-memory blocklist.
-   - Implement `getMe(String username)`: return current user as `UserResponse`.
-
-Please generate both complete service classes. Ensure proper integration with `AuditLogService`.
+**AuthService:**
+- `login(LoginRequest)`: authenticate via `AuthenticationManager`, return JWT.
+- `logout(token)`: add to in-memory blocklist.
+- `getMe(username)`: return current user as `UserResponse`.
 
 ### 6.3
 
-Next, let's implement `ProjectService.java` to handle project lifecycle.
-
-Requirements:
-- `createProject(CreateProjectRequest request, User currentUser)`: Validate that the owner exists via `UserService`, create the project, save it, and log the action `"CREATE"` in `AuditLogService`.
-- `getProjectById(Long id)`: Fetch a project. Throw `ResourceNotFoundException` if it doesn't exist or is soft-deleted.
-- `getAllActiveProjects()`: Fetch all projects where `deletedAt` is NULL.
-- `getDeletedProjects()`: Fetch all projects where `deletedAt` is NOT NULL.
-- `updateProject(Long id, UpdateProjectRequest request, User currentUser)`: Partial update - only apply non-null fields from the request.
-- `softDeleteProject(Long id, User currentUser)`: Implement **Soft Delete**. Do NOT delete the project from the database. Instead, set `deletedAt = LocalDateTime.now()` on the entity, save it, and log `"DELETE"` in `AuditLogService`.
-- `restoreProject(Long id, User currentUser)`: Clear `deletedAt`, save, log `"RESTORE"`. Throw `IllegalStateException` if the project is not currently deleted.
-- `getWorkload(Long projectId)`: Return `List<WorkloadEntry>` sorted ascending by `openTicketCount`.
-
-Please generate the complete `ProjectService.java` class.
+Next, let's implement `ProjectService.java` to handle project lifecycle:
+- `createProject`: validate owner exists, save, log `"CREATE"`.
+- `getProjectById`: throw `ResourceNotFoundException` if not found or soft-deleted.
+- `getAllActiveProjects`, `getDeletedProjects`.
+- `updateProject`: partial update - only apply non-null fields.
+- `softDeleteProject`: set `deletedAt = now()`, save, log `"DELETE"`.
+- `restoreProject`: clear `deletedAt`, save, log `"RESTORE"`. Throw `IllegalStateException` if not currently deleted.
+- `getWorkload(projectId)`: return `List<WorkloadEntry>` sorted ascending by `openTicketCount`.
 
 ### 6.4
 
 Next, let's implement the core ticket features: `TicketService.java`, `DependencyService.java`, and `AttachmentService.java`.
 
-Requirements:
+**TicketService:**
+- `createTicket`: if no `assigneeId` provided, auto-assign to the DEVELOPER with the fewest open tickets in the project (tie-break: lowest user ID). Log `"AUTO_ASSIGN"` with null actor if triggered. Log `"CREATE"`.
+- `updateTicket`: partial update. Enforce forward-only transitions (TODO → IN_PROGRESS → IN_REVIEW → DONE). Block DONE transition if there are unresolved blockers. Manual priority change resets `isOverdue = false`.
+- `softDeleteTicket`: set `deletedAt = now()`, log `"DELETE"`.
+- `restoreTicket`: clear `deletedAt`, log `"RESTORE"`. Throw `IllegalStateException` if not deleted.
 
-1. `TicketService.java`:
-   - `createTicket(CreateTicketRequest request, User currentUser)`:
-     * **Auto-Assignment Logic**: If `assigneeId` is NOT provided in the request, look up all Users with the role `DEVELOPER`. Find the developer who has the minimum count of open tickets in the project. Assign the ticket to them automatically. Tie-break by lowest user ID (oldest registrant). After saving, log `"AUTO_ASSIGN"` with null actor if auto-assignment fired.
-     * Save the ticket and log `"CREATE"` in `AuditLogService`.
-   - `updateTicket(Long id, UpdateTicketRequest request, User currentUser)`: Partial update. Enforce forward-only status transitions (TODO → IN_PROGRESS → IN_REVIEW → DONE). Block the transition to DONE if there are any unresolved (non-DONE) blocker tickets. When priority is manually changed, reset `isOverdue = false`.
-   - `softDeleteTicket(Long id, User currentUser)`: Set `deletedAt = LocalDateTime.now()`, save, log `"DELETE"`.
-   - `restoreTicket(Long id, User currentUser)`: Clear `deletedAt`, save, log `"RESTORE"`. Throw `IllegalStateException` if the ticket is not currently deleted.
+**DependencyService:**
+- `addDependency`: validate no self-dependency, same project, no duplicates. Log `"CREATE"`.
+- `removeDependency`: log `"DELETE"`.
+- `getDependencies(ticketId)`: return list of blocker tickets.
 
-2. `DependencyService.java`:
-   - `addDependency(Long ticketId, AddDependencyRequest request, User currentUser)`: Validate: a ticket cannot block itself; both tickets must belong to the same project; no duplicate dependencies. Log `"CREATE"`.
-   - `removeDependency(Long ticketId, Long blockedById, User currentUser)`: Log `"DELETE"`.
-   - `getDependencies(Long ticketId)`: Return list of blocker tickets.
-
-3. `AttachmentService.java`:
-   - Implement logic to store files as `byte[]` binary data connected to a ticket, and log `"UPLOAD_ATTACHMENT"`.
-
-Please generate these three complete service classes.
+**AttachmentService:** store files as `byte[]` linked to a ticket. Log `"UPLOAD_ATTACHMENT"`.
 
 ### 6.5
 
-Next, let's implement `CommentService.java` which includes live text parsing for user mentions.
-
-Requirements:
-- `addComment(Long ticketId, CreateCommentRequest request, User author)`:
-  * Extract mentions: Before saving the comment text, parse the `content` string using the Regular Expression: `@(\w+)`.
-  * For each extracted username, search the database using `findByUsernameIgnoreCase` (case-insensitive). If a valid user is found, add them to the comment's `mentionedUsers` collection (mapping to the `comment_mentions` table). If not found, skip silently - do NOT throw an exception.
-  * Save the comment and log `"ADD_COMMENT"` in `AuditLogService`.
-- `getCommentsForTicket(Long ticketId)`: Return all comments for a ticket mapped to `CommentResponse`.
-- `updateComment(Long commentId, UpdateCommentRequest request, User currentUser)`: Update content AND re-parse mentions from the new content - call `parseMentions(request.getContent())` and update `mentionedUsers` before saving.
-- `deleteComment(Long commentId, User currentUser)`: Delete and log `"DELETE"`.
-
-Please generate the complete `CommentService.java` class with the Regex matching logic.
+Next, let's implement `CommentService.java` which includes live text parsing for user mentions:
+- `addComment`: parse `content` with regex `@(\w+)`. For each match, look up via `findByUsernameIgnoreCase` - add found users to `mentionedUsers`, silently skip unknown usernames. Save, log `"ADD_COMMENT"`.
+- `getCommentsForTicket(ticketId)`: return all comments as `CommentResponse`.
+- `updateComment`: update content AND re-parse mentions - replace existing `mentionedUsers` with freshly parsed results.
+- `deleteComment`: log `"DELETE"`.
 
 ### 6.6
 
 Finally, let's implement `CsvService.java` and `EscalationService.java`.
 
-**`CsvService.java`** using Apache Commons CSV libraries:
-- `exportTicketsToCsv(Long projectId, Writer writer)`: Fetch all active tickets belonging to the specified project and stream them out in a clean CSV format (Columns: ID, Title, Status, Priority, Type, Assignee).
-- `importTicketsFromCsv(InputStream inputStream, Long projectId, User currentUser)`:
-  * Parse the uploaded CSV file row by row.
-  * For each valid row, construct a ticket entity linked to the project.
-  * If a row is missing an assignee, trigger the same **Auto-Assignment** logic built into TicketService.
-  * Track statistics: Return a `CsvImportResult` DTO containing `successfulCount`, `failedCount`, and `errors` (list of per-row error messages).
+**CsvService (Apache Commons CSV):**
+- `exportTicketsToCsv(projectId, writer)`: write all active tickets to CSV (columns: ID, Title, Status, Priority, Type, Assignee).
+- `importTicketsFromCsv(inputStream, projectId, currentUser)`: parse row by row with per-row error tolerance. Auto-assign if no assignee. Return `CsvImportResult` (successfulCount, failedCount, errors).
 
-**`EscalationService.java`**:
-- `@Service` class with a method annotated with `@Scheduled(fixedRate = 60_000)` and `@Transactional`.
-- **Logic - two steps**:
-  * Step 1: Find overdue non-CRITICAL tickets (`findOverdueTicketsForEscalation`). For each, promote priority one level: LOW→MEDIUM, MEDIUM→HIGH, HIGH→CRITICAL. When a ticket reaches CRITICAL, also set `isOverdue = true`. Save and log `"AUTO_ESCALATE"` with null actor.
-  * Step 2: Find already-CRITICAL overdue tickets where `isOverdue = false` (`findOverdueCriticalWithoutFlag`). Set `isOverdue = true`, save, log `"AUTO_ESCALATE"` with null actor.
+**EscalationService:**
+- `@Scheduled(fixedRate = 60_000)` with `@Transactional`.
+- Step 1: fetch overdue non-CRITICAL tickets, promote one level (LOW→MEDIUM, MEDIUM→HIGH, HIGH→CRITICAL). Set `isOverdue = true` when reaching CRITICAL. Log `"AUTO_ESCALATE"` with null actor.
+- Step 2: fetch already-CRITICAL overdue tickets where `isOverdue = false` - set flag, log.
 - Add `@EnableScheduling` to `IssueFlowApplication.java`.
-
-Please generate both complete service classes.
 
 ---
 
 ## Step 7 - All Controllers & Exception Handling
 
-You are a Senior Java and Spring Boot Web Architect. We are entering the final structural phase of the "IssueFlow" backend: **Step 7: All Controllers & Exception Handling**.
+We are entering the final structural phase of the IssueFlow backend: **Step 7: All Controllers & Exception Handling**.
 
-Please generate the REST Controllers in the `com.att.tdp.issueflow.controller` package and the Exception Handler in the `com.att.tdp.issueflow.exception` package.
+Generate all REST Controllers in `com.att.tdp.issueflow.controller` and the exception handler in `com.att.tdp.issueflow.exception`.
 
-### General Controller Requirements:
-- Use `@RestController`. All endpoints must be prefixed with `/api`.
-- Inject Services using constructor injection (Lombok's `@RequiredArgsConstructor` is allowed).
-- Enforce input validation using `@Valid` on all incoming Request DTOs.
-- Use `@AuthenticationPrincipal` to extract the currently authenticated user, then resolve to the `User` entity via `UserService`.
-- Return appropriate HTTP Status codes: `201 Created` for creations, `200 OK` for successful fetches/updates, `204 No Content` for successful deletes.
+**General requirements:** `@RestController`, all endpoints prefixed `/api`, constructor injection via `@RequiredArgsConstructor`, `@Valid` on all request bodies, `@AuthenticationPrincipal` to resolve the current user, standard HTTP codes (`201` for creates, `204` for deletes).
 
-### Strict Route Ordering Rule:
-In `ProjectController` and `TicketController`, you MUST declare static/explicit sub-paths (like `/deleted`, `/export`) **BEFORE** parameterized wildcard paths (like `/{id}`). This prevents Spring from evaluating words like "deleted" as a path parameter ID.
+**Route ordering:** in `ProjectController` and `TicketController`, static paths (`/deleted`, `/export`) must be declared BEFORE parameterized paths (`/{id}`) to prevent Spring treating literal words as path variable values.
 
-Please generate the following files:
-
-1. **`AuthController.java`** (`/api/auth`)
-   - `POST /login`: Accepts `LoginRequest`, calls `AuthService.login()`, returns `LoginResponse`.
-   - `POST /logout`: Invalidates the current token via `AuthService.logout()`.
-   - `GET /me`: Secured route. Returns current logged-in user as `UserResponse`.
-
-2. **`UserController.java`** (`/api/users`)
-   - `POST`: Public endpoint for registration. Accepts `CreateUserRequest`, returns `UserResponse` (`201 Created`).
-   - `GET`, `GET /{id}`, `PATCH /{id}`, `DELETE /{id}`, `GET /{id}/mentions`
-
-3. **`ProjectController.java`** (`/api/projects`)
-   - `POST`: Create a project.
-   - `GET`: Get all active projects.
-   - `GET /deleted`: Get all soft-deleted projects (**Must be defined before /{id}**).
-   - `GET /{id}`: Get project by ID.
-   - `PATCH /{id}`: Partially update a project.
-   - `DELETE /{id}`: Soft delete project (`204 No Content`).
-   - `POST /{id}/restore`: Restore a soft-deleted project.
-   - `GET /{id}/workload`: Get developer workload statistics for the project.
-
-4. **`TicketController.java`** (`/api/tickets`)
-   - `POST`: Create a ticket.
-   - `GET`: Get active tickets (filter by `projectId` via query param).
-   - `GET /deleted`: Get all soft-deleted tickets (**Must be defined before /{id}**).
-   - `GET /export`: CSV export (**Must be defined before /{id}**).
-   - `GET /{id}`: Get ticket by ID.
-   - `PATCH /{id}`: Update ticket fields.
-   - `DELETE /{id}`: Soft delete a ticket (`204 No Content`).
-   - `POST /{id}/restore`: Restore a soft-deleted ticket.
-   - `GET /{id}/dependencies`, `POST /{id}/dependencies`, `DELETE /{id}/dependencies/{blockedById}`
-   - `POST /import`: CSV import.
-
-5. **`CommentController.java`** (`/api`)
-   - Ticket-scoped CRUD under `/tickets/{ticketId}/comments` (`POST`, `GET`, `PATCH /{commentId}`, `DELETE /{commentId}`).
-   - `GET /comments/mentions`: Paginated feed of comments where the current logged-in user is @mentioned (`MentionsPageResponse`).
-
-6. **`AttachmentController.java`** (`/api/tickets/{ticketId}/attachments`)
-   - `POST`: Upload a file as `MultipartFile`, store it as binary data.
-   - `GET /{attachmentId}`: Download an attachment. Return proper response headers (`Content-Type`, `Content-Disposition`) along with the raw `byte[]` payload.
-
-7. **`AuditLogController.java`** (`/api/audit-logs`)
-   - `GET`: Fetch audit logs. Allow optional filtering via query parameters (`entityType`, `entityId`).
-
-8. **`exception/GlobalExceptionHandler.java`**
-   - Annotate with `@RestControllerAdvice`.
-   - Define a clean `ErrorResponse` structure inside this file with: timestamp, HTTP status code, short error label, human-readable message, and a details list for field-level errors.
-   - Map every exception type that this application can throw to the correct HTTP status code. Consider: not-found scenarios, conflict scenarios (including optimistic lock failures), bad input (both from service-layer validation and from bean validation on incoming requests), access denied, file size exceeded, and a catch-all for unexpected server errors. For validation errors on request bodies, include per-field messages in the details list.
-
-Output ONLY clean, production-ready Java 21 code for these controllers and handler. Do not add mock services.
+1. **`AuthController`** (`/api/auth`) - `POST /login`, `POST /logout`, `GET /me`.
+2. **`UserController`** (`/api/users`) - `POST` (public, registration), `GET`, `GET /{id}`, `PATCH /{id}`, `DELETE /{id}`, `GET /{id}/mentions`.
+3. **`ProjectController`** (`/api/projects`) - `POST`, `GET`, `GET /deleted`, `GET /{id}`, `PATCH /{id}`, `DELETE /{id}`, `POST /{id}/restore`, `GET /{id}/workload`.
+4. **`TicketController`** (`/api/tickets`) - `POST`, `GET`, `GET /deleted`, `GET /export`, `GET /{id}`, `PATCH /{id}`, `DELETE /{id}`, `POST /{id}/restore`, `GET /{id}/dependencies`, `POST /{id}/dependencies`, `DELETE /{id}/dependencies/{blockedById}`, `POST /import`.
+5. **`CommentController`** (`/api`) - CRUD under `/tickets/{ticketId}/comments`. Also `GET /comments/mentions` (paginated, current user's mentions).
+6. **`AttachmentController`** (`/api/tickets/{ticketId}/attachments`) - `POST` (upload `MultipartFile`), `GET /{attachmentId}` (download with `Content-Type` and `Content-Disposition` headers).
+7. **`AuditLogController`** (`/api/audit-logs`) - `GET` with optional `entityType` and `entityId` query params.
+8. **`GlobalExceptionHandler`** (`@RestControllerAdvice`) - structured `ErrorResponse` (timestamp, status, error label, message, field-level details). Map every exception: not-found, conflict (including optimistic lock failures), bad input (service layer + bean validation), access denied, file size exceeded, and a catch-all for unexpected errors. Include per-field messages for validation failures.
 
 ---
 
 ## Step 8 - CSV Import/Export
 
-You are a Senior Spring Boot Developer. We are now implementing the final functional requirements for the "IssueFlow" backend: **CSV Import/Export**.
+We are now implementing the final functional requirements for the IssueFlow backend: **CSV Import/Export**.
 
-Please generate or verify `CsvService.java` and ensure `TicketController` has these exact endpoints:
+Generate or verify `CsvService.java` and the corresponding endpoints in `TicketController`.
 
-**1. CSV Export:**
-- Endpoint: `GET /api/tickets/export?projectId=X`
-- Behavior: Must set the HTTP response header `Content-Type: text/csv` and `Content-Disposition: attachment; filename="tickets.csv"`.
-- Logic: Use `Apache Commons CSV` to query all active tickets for the given `projectId` and write them row by row to the `HttpServletResponse` output stream.
+**Export:** `GET /api/tickets/export?projectId=X` - set `Content-Type: text/csv` and `Content-Disposition: attachment; filename="tickets.csv"`. Stream all active tickets via Apache Commons CSV.
 
-**2. CSV Import:**
-- Endpoint: `POST /api/tickets/import?projectId=X`
-- Consumes: `multipart/form-data` (receives a `MultipartFile`).
-- Logic: Parse the CSV. For each valid row, create a Ticket associated with the `projectId`. If a row is invalid (missing required fields, etc.), catch the exception for that specific row and continue processing the rest.
-- Return DTO: Return a JSON response representing the `CsvImportResult` DTO, which must look like:
-  ```json
-  { "successfulCount": N, "failedCount": M, "errors": ["Row 2: Missing title", "Row 5: Invalid priority..."] }
-  ```
-
-Output ONLY the production-ready Java code for the CSV Service methods and the Controller endpoints. Ensure robust error handling for the CSV parser.
+**Import:** `POST /api/tickets/import?projectId=X` - accepts `multipart/form-data`. Parse row by row with per-row error isolation. Return:
+```json
+{ "successfulCount": N, "failedCount": M, "errors": ["Row 2: Missing title", "Row 5: Invalid priority"] }
+```
 
 ---
 
 ## Step 9 - Unit Tests & Documentation
 
-You are a Senior QA Automation Engineer and Java Testing Expert. We are completing the final phase of the "IssueFlow" backend project: **Step 9: Unit Tests**.
+We are completing the final phase of the IssueFlow backend project: **Step 9: Unit Tests**.
 
-We need to write comprehensive unit tests using JUnit 5 and Mockito for our core business logic. No Spring context or H2 database is needed - all dependencies are mocked with `@ExtendWith(MockitoExtension.class)`.
+Write unit tests using JUnit 5 and Mockito. No Spring context - all dependencies mocked with `@ExtendWith(MockitoExtension.class)`.
 
-Please implement unit test classes for the following services:
+1. **`UserServiceTest`**: registration success (password encoded, audit logged, plain-text never saved); duplicate username/email → `ConflictException`. `getAllUsers`, `getUserById` (success + 404), `updateUser` (email change, duplicate new email, same email skips uniqueness check), `deleteUser` (success + 404).
 
-1. **`UserServiceTest.java`**:
-   - Test successful user registration (verify password encoding via `PasswordEncoder` and audit log triggering).
-   - Test registration failure when username or email already exists (asserting that `ConflictException` is thrown).
-   - Verify the plain-text password never reaches the repository.
-   - Test `getAllUsers`, `getUserById` (success + 404), `updateUser` (email change, duplicate new email, same email skips uniqueness check), `deleteUser` (success + 404).
+2. **`TicketServiceTest`**: auto-assignment picks dev with fewest open tickets; all devs at zero → lowest ID wins; no devs → null assignee; explicit assigneeId skips auto-assign; unknown assigneeId → 404. Soft-delete sets `deletedAt`. `restoreTicket` clears `deletedAt`; throws if not deleted; 404 if not found. `updateTicket`: null fields unchanged; DONE ticket immutable; backward status → throws; DONE with open blockers → throws; manual priority change resets `isOverdue`.
 
-2. **`TicketServiceTest.java`**:
-   - Test **Auto-Assignment Logic**: mock developers with different open ticket counts → ticket goes to the one with minimum. All devs at zero → lowest user ID wins (tie-break). No developers in system → assignee null. Explicit `assigneeId` → skip auto-assign logic. Explicit `assigneeId` not found → 404.
-   - Test soft-delete to ensure `deletedAt` is set correctly instead of a physical delete.
-   - Test `restoreTicket` - clears `deletedAt`; throws `IllegalStateException` if not deleted; 404 if not found.
-   - Test `updateTicket` - partial update (null fields unchanged), DONE ticket immutable, backward status transition throws, DONE with open blockers throws, manual priority change resets `isOverdue`.
+3. **`CommentServiceTest`**: mention parsing extracts multiple `@username` matches, queries `findByUsernameIgnoreCase`, maps to `mentionedUsers`. Unknown mention → skipped silently. No `@` in content → repository never called. Mixed known/unknown → only known attached. Ticket not found → throws, comment not saved. `updateComment` re-parses mentions. `deleteComment` success + 404.
 
-3. **`CommentServiceTest.java`**:
-   - Test **Mention Parsing Logic**: mock comment content with multiple `@username` mentions (e.g., `"Hey @alice and @bob, please review"`). Verify the Regex correctly extracts both, queries the database via `findByUsernameIgnoreCase`, and maps them into the comment's mention collection.
-   - Unknown mention → silently skipped, no exception.
-   - No `@` in content → `userRepository` never called.
-   - Mixed known/unknown → only known users attached.
-   - Ticket not found → throws, comment not saved. Audit log verified.
-   - `updateComment` re-parses mentions. `deleteComment` success + 404.
+4. **`EscalationServiceTest`**: LOW→MEDIUM (`isOverdue` stays false); MEDIUM→HIGH (`isOverdue` stays false); HIGH→CRITICAL (`isOverdue = true`); already-CRITICAL without flag → flag set, priority unchanged; no overdue tickets → no saves, no logs.
 
-4. **`EscalationServiceTest.java`**:
-   - LOW → MEDIUM (isOverdue stays false).
-   - MEDIUM → HIGH (isOverdue stays false).
-   - HIGH → CRITICAL (isOverdue set to true).
-   - Already CRITICAL without flag → flag set, priority unchanged.
-   - No overdue tickets → no saves, no logs.
+5. **`ProjectServiceTest`**: `createProject` success; owner not found → 404. `getProjectById` success + 404. `updateProject` partial (null name unchanged). `softDeleteProject` sets `deletedAt` + audit; 404 if not found. `restoreProject` clears `deletedAt` + audit; already-active → `IllegalStateException`; 404.
 
-5. **`ProjectServiceTest.java`**:
-   - `createProject`: success; owner not found → 404.
-   - `getProjectById`: success; 404.
-   - `updateProject`: partial update (null name left unchanged).
-   - `softDeleteProject`: sets `deletedAt` + audit; 404 if not found.
-   - `restoreProject`: clears `deletedAt` + audit; already-active → `IllegalStateException`; 404.
+6. **`DependencyServiceTest`**: `addDependency` success; self-dependency → `IllegalArgumentException`; different projects → `IllegalArgumentException`; duplicate → `ConflictException`. `removeDependency` success; not found → `ResourceNotFoundException`. `getDependencies` returns correct blocker list.
 
-6. **`DependencyServiceTest.java`**:
-   - `addDependency`: success; self-dependency → `IllegalArgumentException`; different projects → `IllegalArgumentException`; duplicate → `ConflictException`.
-   - `removeDependency`: success; dependency not found → `ResourceNotFoundException`.
-   - `getDependencies`: returns correct blocker list.
-
-Rules for this interaction:
-- Use `@ExtendWith(MockitoExtension.class)` for all test classes - no Spring context needed.
-- Write clean, self-documenting test case names (e.g., `createTicket_autoAssignment_selectsDevWithFewestOpenTickets`).
-
-Output ONLY the full Java test code.
+Use descriptive test names (e.g., `createTicket_autoAssignment_selectsDevWithFewestOpenTickets`).
 
 ---
 
@@ -594,12 +294,12 @@ One catch though - I tried adding `@NotBlank` to the DTO field and it broke part
 
 ### 11.1 - BFS Circular Dependency Detection
 
-`DependencyService.addDependency` validates self-reference, same-project, and duplicates - but does NOT detect transitive cycles. Adding A blocked-by B and B blocked-by C and then C blocked-by A would create an unresolvable deadlock graph.
+`DependencyService.addDependency` validates self-reference, same-project, and duplicates - but does NOT detect transitive cycles. A chain like A ← B ← C and then C ← A creates an unresolvable deadlock.
 
-Fix: add `findBlockerIdsByTicketId(@Param("ticketId") Long ticketId)` to `TicketDependencyRepository` (JPQL: `SELECT d.blockedBy.id FROM TicketDependency d WHERE d.ticket.id = :ticketId`). Add private `wouldCreateCycle(Long ticketId, Long newBlockerId)` to `DependencyService`: BFS starting from `newBlockerId`, following the existing blocker chain at each step. If `ticketId` is reached, the proposed edge would close a loop - throw `IllegalArgumentException`. Add test: `addDependency_wouldCreateCycle_throwsIllegalArgumentException`.
+Add `findBlockerIdsByTicketId(Long ticketId)` to `TicketDependencyRepository` (JPQL: `SELECT d.blockedBy.id FROM TicketDependency d WHERE d.ticket.id = :ticketId`). Add a private `wouldCreateCycle(Long ticketId, Long newBlockerId)` BFS method to `DependencyService`: start from `newBlockerId`, follow the existing blocker chain at each step, return true if `ticketId` is reached. Throw `IllegalArgumentException` if a cycle is detected. Add test: `addDependency_wouldCreateCycle_throwsIllegalArgumentException`.
 
 ### 11.2 - Cascaded Soft Delete for Projects
 
-`ProjectService.softDeleteProject` sets `deletedAt` on the project but leaves all its tickets active. Similarly, `restoreProject` only restores the project record.
+`softDeleteProject` sets `deletedAt` on the project but leaves all its tickets active. Similarly, `restoreProject` only restores the project record.
 
-Fix: in `softDeleteProject`, after saving the project, fetch all active tickets via `findByProjectIdAndDeletedAtIsNull` and bulk-set their `deletedAt` to the same timestamp; call `saveAll`. In `restoreProject`, after saving the project, fetch all deleted tickets via `findByProjectIdAndDeletedAtIsNotNull` and clear their `deletedAt`; call `saveAll`. Both methods are already `@Transactional`. Add tests: `softDeleteProject_cascadesToActiveTickets` and `restoreProject_cascadesToDeletedTickets`.
+In `softDeleteProject`: after saving the project, fetch all active tickets via `findByProjectIdAndDeletedAtIsNull` and set their `deletedAt` to the same timestamp; `saveAll`. In `restoreProject`: after saving, fetch all deleted tickets via `findByProjectIdAndDeletedAtIsNotNull`, clear their `deletedAt`, `saveAll`. Both are already `@Transactional`. Add tests: `softDeleteProject_cascadesToActiveTickets` and `restoreProject_cascadesToDeletedTickets`.
