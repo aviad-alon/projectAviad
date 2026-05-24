@@ -10,7 +10,7 @@
 
 ## Overview
 
-IssueFlow is a Java 21 / Spring Boot 3.4.2 REST API for project and ticket management. Beyond standard CRUD, it implements BFS-based circular dependency detection, cascaded soft-delete with full restore, forward-only status transitions with blocker enforcement, optimistic locking on concurrent edits, background auto-escalation, and auto-assignment to the least-loaded developer - all covered by 65 unit tests with zero Spring context.
+IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It handles the usual CRUD operations, but also includes things like circular dependency detection between tickets, soft-delete with full restore, status transition rules, auto-assignment of tickets to the least busy developer, and a background job that escalates overdue tickets automatically. The project has 65 unit tests and no Spring context loaded in tests.
 
 > **Setup & run instructions:** see [run.md](run.md)
 
@@ -34,16 +34,16 @@ IssueFlow is a Java 21 / Spring Boot 3.4.2 REST API for project and ticket manag
 
 ## Key Design Decisions
 
-- **Soft delete via `deletedAt` timestamp** - records are never hard-deleted; the exact deletion time is preserved and admins can restore them at any time.
-- **Cascaded soft delete** - deleting a project also soft-deletes all its active tickets in the same transaction; restoring a project restores all its tickets automatically.
-- **`TicketDependency` as a first-class entity** - dependencies have their own repository and service (`DependencyService`), enabling audit logging, cross-project validation, duplicate detection, and circular dependency prevention.
-- **BFS cycle detection** - before persisting a new dependency edge, a breadth-first search traverses the existing dependency graph to reject any edge that would form a cycle.
-- **Forward-only status transitions** - tickets move `TODO -> IN_PROGRESS -> IN_REVIEW -> DONE` only; backward transitions and updates to a DONE ticket are rejected. Transitioning to DONE requires all blocker tickets to be resolved first.
-- **Optimistic locking (`@Version`)** - all mutable entities carry a version column; concurrent updates return `409 Conflict` instead of silently overwriting data.
-- **Centralized error handling (`GlobalExceptionHandler`)** - every exception maps to a consistent JSON envelope with `timestamp`, `status`, `error`, and `message`.
-- **Token blacklist** - `POST /api/auth/logout` invalidates the JWT server-side so stolen tokens cannot be reused.
-- **Auto-assignment** - tickets created without an explicit assignee are routed to the DEVELOPER with the fewest open tickets in that project.
-- **Auto-escalation** - a background scheduler runs every 60 seconds and promotes overdue tickets one priority level (`LOW` -> `MEDIUM` -> `HIGH` -> `CRITICAL`).
+- **Soft delete via `deletedAt` timestamp** - nothing is permanently deleted; records get a timestamp instead, and admins can restore them at any time.
+- **Cascaded soft delete** - deleting a project also soft-deletes all its tickets in the same transaction, and restoring it brings them back too.
+- **`TicketDependency` as its own entity** - I modeled dependencies as a separate table rather than a simple field, which made it easier to validate them, log them, and run cycle detection on them.
+- **BFS cycle detection** - before saving a new dependency, the code runs a breadth-first search through the existing graph to make sure no cycle would be created.
+- **Forward-only status transitions** - tickets can only move forward (`TODO -> IN_PROGRESS -> IN_REVIEW -> DONE`). Going backward is blocked, and closing a ticket is blocked if it still has unresolved blockers.
+- **Optimistic locking (`@Version`)** - every entity has a version field. If two requests try to update the same record at the same time, one gets a `409 Conflict` instead of silently overwriting the other.
+- **Centralized error handling (`GlobalExceptionHandler`)** - all exceptions go through one place and return a consistent JSON shape with `timestamp`, `status`, `error`, and `message`.
+- **Token blacklist** - logging out actually invalidates the JWT on the server side, so a stolen token can't be reused.
+- **Auto-assignment** - if a ticket is created without an assignee, it's automatically assigned to the developer with the fewest open tickets in that project.
+- **Auto-escalation** - a background job runs every 60 seconds and bumps the priority of overdue tickets one level up (`LOW` -> `MEDIUM` -> `HIGH` -> `CRITICAL`).
 
 ---
 
