@@ -10,7 +10,7 @@
 
 ## Overview
 
-IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It handles the usual CRUD operations, but also includes things like circular dependency detection between tickets, soft-delete with full restore, status transition rules, auto-assignment of tickets to the least busy developer, and a background job that escalates overdue tickets automatically. The project has 65 unit tests and no Spring context loaded in tests.
+IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It handles the usual CRUD operations, but also includes things like circular dependency detection between tickets, soft-delete with full restore, status transition rules, auto-assignment of tickets to the least busy developer, and a background job that escalates overdue tickets automatically. The project has 69 unit tests and no Spring context loaded in tests.
 
 > **Setup & run instructions:** see [run.md](run.md)
 
@@ -26,7 +26,7 @@ IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It
 | Security | Spring Security + JJWT 0.12.6 (stateless JWT) |
 | Validation | Jakarta Bean Validation (`@Valid`, `@NotBlank`, `@Size`) |
 | CSV | Apache Commons CSV 1.10.0 |
-| Testing | JUnit 5, Mockito (65 unit tests, zero Spring context) |
+| Testing | JUnit 5, Mockito (69 unit tests, zero Spring context) |
 | Build | Maven Wrapper (`./mvnw`) |
 | Database (local) | Docker Compose (`compose.yml`) |
 
@@ -184,7 +184,7 @@ All errors return a consistent JSON envelope:
 
 ## Testing
 
-The project includes 65 unit tests covering all core services. Tests run against an in-memory H2 database - no Docker required.
+The project includes 69 unit tests covering all core services. Tests run against an in-memory H2 database - no Docker required.
 
 ```bash
 ./mvnw test

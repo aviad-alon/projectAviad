@@ -91,7 +91,7 @@ The test suite uses an in-memory **H2** database - no running PostgreSQL instanc
 Expected output:
 
 ```
-Tests run: 65, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 69, Failures: 0, Errors: 0, Skipped: 0
 BUILD SUCCESS
 ```
 
