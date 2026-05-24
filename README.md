@@ -6,7 +6,7 @@
 
 ## Overview
 
-IssueFlow is a production-grade REST API for project and issue tracking, built with Java 21 and Spring Boot 3.4.2. The system covers the full lifecycle of tickets, projects, users, comments, dependencies, attachments, and audit logs, with JWT-based authentication throughout.
+IssueFlow is a Java 21 / Spring Boot 3.4.2 REST API for project and ticket management. Beyond standard CRUD, it implements BFS-based circular dependency detection, cascaded soft-delete with full restore, forward-only status transitions with blocker enforcement, optimistic locking on concurrent edits, background auto-escalation, and auto-assignment to the least-loaded developer - all covered by 65 unit tests with zero Spring context.
 
 > **Setup & run instructions:** see [run.md](run.md)
 
@@ -22,7 +22,7 @@ IssueFlow is a production-grade REST API for project and issue tracking, built w
 | Security | Spring Security + JJWT 0.12.6 (stateless JWT) |
 | Validation | Jakarta Bean Validation (`@Valid`, `@NotBlank`, `@Size`) |
 | CSV | Apache Commons CSV 1.10.0 |
-| Testing | JUnit 5, Mockito (62 unit tests, zero Spring context) |
+| Testing | JUnit 5, Mockito (65 unit tests, zero Spring context) |
 | Build | Maven Wrapper (`./mvnw`) |
 | Database (local) | Docker Compose (`compose.yml`) |
 
@@ -198,14 +198,8 @@ Test classes:
 
 ## AI & Agents
 
-This project was developed with the assistance of AI tools. See [prompts.md](prompts.md) for the full list of prompts used throughout the implementation.
+See [prompts.md](prompts.md) for the full prompt log and working methodology.
 
-**Tools used:**
-- Claude Code (claude-sonnet-4-6) - implementation, testing, architecture
-- Google Gemini 2.5 Pro & Flash - research and review
+- **Claude Code (claude-sonnet-4-6)** - implementation, testing, architecture
+- **Google Gemini 2.5 Pro & Flash** - research, conceptual questions, prompt refinement
 
----
-
-## License
-
-This project is [MIT licensed](LICENSE).
