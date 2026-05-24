@@ -30,11 +30,20 @@ Every piece of generated code went through a review pass - both by the agent (as
 
 Read the full assignment and all the project files I've attached. Before we write a single line of code I need to understand exactly what's required - which APIs need to exist, what the skeleton already provides, and what still needs to be built from scratch. Based on that, give me a 3-day implementation plan ordered by dependencies (so we never build something that relies on code that doesn't exist yet). Also list the main technical decisions I'll need to make along the way - things like how to model relationships, what security approach to use, how soft delete should work, and so on. I want the plan broken into clear daily milestones so I can track progress.
 
+**Key decisions:**
+- Java / Spring Boot chosen as the implementation language
+- Vertical slicing strategy - one complete feature before moving to the next, so there's always something working
+- No code written at this stage - planning only
+
 ---
 
 ## Step 0.5 - First Vertical Slice
 
 Before expanding to the full system, let's validate the setup with a single working feature. Start with user management only - create the `User` entity, `UserRepository`, a `UserService` with basic CRUD methods, and a `UserController` with at least a `POST /api/users` endpoint. Don't touch projects, tickets, or auth yet. The goal is just to confirm that the Spring Boot app starts, the database connection works, and I can create a user and get a 201 back. Keep it minimal for now.
+
+**Key decisions:**
+- Kept this intentionally minimal - the point was just to confirm the app boots and the DB connection works before adding complexity
+- JWT and auth deliberately deferred to Step 5
 
 ---
 
@@ -50,6 +59,11 @@ Generate the full PostgreSQL schema for IssueFlow. I need tables for: users, pro
 
 Make sure the schema can support all the features: auto-assignment, scheduled escalation, mentions, and dependency cycle detection.
 
+**Key decisions:**
+- `deleted_at` as a nullable timestamp instead of a boolean - if it's null the record is active, if it has a value it's deleted and we know exactly when
+- `performed_by` in audit_logs is nullable so the system can write its own entries (escalation, auto-assignment) without needing a user
+- Dependencies modeled as a separate table so they can be queried and validated independently
+
 ---
 
 ## Step 2 - Entities & Enums
@@ -62,6 +76,10 @@ Now translate the schema into JPA entities and Java enums. Use Lombok on all ent
 - Enums: `TicketStatus` (TODO, IN_PROGRESS, IN_REVIEW, DONE), `TicketPriority` (LOW, MEDIUM, HIGH, CRITICAL), `TicketType` (BUG, FEATURE, TECHNICAL), `UserRole` (ADMIN, DEVELOPER)
 - Use `@CreationTimestamp` and `@UpdateTimestamp` for audit fields instead of setting them manually
 
+**Key decisions:**
+- `TicketDependency` modeled as its own entity with `@IdClass` instead of a simple list on `Ticket` - makes it queryable, loggable, and enables the BFS cycle detection we add in Step 11
+- `FetchType.LAZY` on all `@ManyToOne` associations to avoid loading the full object graph on every query
+
 ---
 
 ## Step 3 - DTOs
@@ -73,6 +91,10 @@ Generate all the request and response DTOs. The key rules:
 - `CommentResponse` should include a `List<UserSummaryResponse>` for the mentioned users
 - PATCH request DTOs need to support partial updates - every field should be `Optional<String>` or nullable so that fields not included in the request body simply aren't updated. Don't update a field just because it was omitted
 - Separate DTOs for create vs update where the validation rules differ (for example, `CreateTicketRequest` vs `UpdateTicketRequest`)
+
+**Key decisions:**
+- Passwords are excluded from all response DTOs - this was a hard rule from the start, not something to revisit later
+- Nullable fields in PATCH DTOs allow partial updates without special handling - if the field is null, the service just skips it
 
 ---
 
@@ -87,6 +109,10 @@ Generate all the Spring Data JPA repositories. Use Spring Data derived method na
 
 Make sure all queries for non-deleted records filter by `deletedAt IS NULL`.
 
+**Key decisions:**
+- Every query that reads "active" records must filter by `deletedAt IS NULL` - this had to be consistent everywhere or soft-deleted records would leak into responses
+- Native SQL avoided throughout - JPQL only, so the queries stay portable and readable
+
 ---
 
 ## Step 5 - JWT Security
@@ -100,11 +126,20 @@ Add Spring Security with stateless JWT authentication. The requirements:
 - Map `UserRole.ADMIN` to Spring Security authority `ROLE_ADMIN` and `UserRole.DEVELOPER` to `ROLE_DEVELOPER`
 - Return 401 for missing/invalid tokens and 403 for valid tokens with insufficient role
 
+**Key decisions:**
+- In-memory blacklist for logout - simple and sufficient for the scope, no need for a database-backed solution
+- No refresh tokens - kept auth straightforward, a 24-hour expiry is acceptable for this system
+- Secret key injected via `@Value("${jwt.secret}")` - never hardcoded
+
 ---
 
 ## Step 6.1 - AuditLogService
 
 Before writing any other service, let's get the audit log in place since everything else will depend on it. Implement `AuditLogService` with a single public method: `log(String action, String entityType, Long entityId, User performedBy)`. It should set the timestamp to `LocalDateTime.now()` and save the entry to the database. The `performedBy` field should be nullable to support system-triggered actions like auto-assignment and escalation.
+
+**Key decisions:**
+- `AuditLogService` has no dependencies on other services - safe to inject anywhere without circular dependency issues
+- Append-only design - audit entries are never updated or deleted
 
 ---
 
@@ -115,6 +150,10 @@ Now implement `UserService` and `AuthService`.
 `UserService` should handle full user lifecycle: register (validate that username and email are unique, hash the password, log `CREATE`), `getAllUsers`, `getUserById`, `updateUser` (partial - only apply non-null fields, skip email uniqueness check if it didn't change), `deleteUser`, and `getUserMentions(userId, page, pageSize)` which returns a paginated list of comments where the user was mentioned.
 
 `AuthService` needs three things: `login` - authenticate via Spring's `AuthenticationManager` and return a JWT, `logout` - add the token to an in-memory blacklist so it can't be reused, `getMe` - return the current user object given a username.
+
+**Key decisions:**
+- Duplicate username or email throws `ConflictException` which maps to a 409 - gives the client something actionable
+- Email uniqueness check skipped during `updateUser` if the email didn't change - otherwise updating anything else on the account would fail
 
 ---
 
@@ -129,6 +168,10 @@ Implement `ProjectService` to handle the full project lifecycle:
 - `softDeleteProject` - set `deletedAt = now()`, log `DELETE`
 - `restoreProject` - clear `deletedAt`, log `RESTORE`. Throw `IllegalStateException` if the project isn't currently deleted
 - `getWorkload(projectId)` - return a list of developers with their open ticket counts for that project, sorted ascending
+
+**Key decisions:**
+- Workload sorted ascending by open ticket count - the auto-assignment logic will pick from this list, so ordering matters
+- `restoreProject` throws if the project isn't deleted - better to fail explicitly than to silently no-op
 
 ---
 
@@ -146,11 +189,20 @@ Implement the core ticket features.
 
 **AttachmentService** - store file bytes linked to a ticket, log `UPLOAD_ATTACHMENT`.
 
+**Key decisions:**
+- `AUTO_ASSIGN` logged with null actor since it's system-triggered, not initiated by a user
+- DONE is treated as a terminal state - no further updates allowed once a ticket reaches it
+- Attachment bytes stored directly in the database (`BYTEA`) - no external file system needed for this scope
+
 ---
 
 ## Step 6.5 - CommentService
 
 Implement `CommentService` with live mention parsing. When a comment is added or updated, parse all `@username` tokens from the content using a regex, then look up each username case-insensitively. Found users get added to `mentionedUsers`, unknown usernames are silently skipped. On `updateComment`, fully replace the existing mention list with a freshly parsed one - don't append to it. Log `ADD_COMMENT` on create and `DELETE` on delete.
+
+**Key decisions:**
+- Mentions fully re-parsed on every update rather than merged - the list should always reflect what's actually in the content, not what it used to say
+- Unknown usernames silently skipped - no error thrown, no feedback to the caller
 
 ---
 
@@ -167,6 +219,10 @@ Implement the last two services.
 - Also fetch any CRITICAL tickets where `isOverdue` is still false and set the flag
 - Remember to add `@EnableScheduling` to the main application class
 
+**Key decisions:**
+- Import is row-isolated - a single bad row doesn't abort the batch. Errors are collected and returned in the response
+- Escalation split into two phases: first promote non-CRITICAL tickets up one level, then separately handle tickets that are already CRITICAL but haven't had their `isOverdue` flag set yet
+
 ---
 
 ## Step 7 - Controllers & Error Handling
@@ -178,6 +234,11 @@ Wire up all the REST controllers. Important things to get right:
 - Create a `GlobalExceptionHandler` with `@RestControllerAdvice` that catches all exceptions and returns a consistent JSON error response with these fields: `timestamp`, `status` (integer), `error` (short label like "Not Found"), `message` (readable explanation), `path` (the request URI), and `details` (list of field errors for validation failures, empty otherwise)
 - Status codes to map: 400 for validation/business rule failures, 401 for auth errors, 403 for role errors, 404 for not found, 409 for duplicates and optimistic locking conflicts, 413 for files over the size limit, 500 for unexpected errors
 
+**Key decisions:**
+- Route ordering in Spring is not automatic - static paths like `/deleted` have to be declared before `/{id}` or Spring parses the literal word as a path variable
+- `path` field added to `ErrorResponse` via `HttpServletRequest.getRequestURI()` so the client knows which endpoint triggered the error
+- `@EnableMethodSecurity` added to support `@PreAuthorize("hasRole('ADMIN')")` on admin-only endpoints
+
 ---
 
 ## Step 8 - CSV Import/Export
@@ -188,6 +249,10 @@ Add two endpoints for bulk ticket operations:
 - **Import** - `POST /api/tickets/import` - accepts a `multipart/form-data` request with a `file` field and a `projectId` field. Read the CSV row by row. If a row fails validation or parsing, log the error and skip it - don't abort the whole import. Return a JSON summary object with `successfulCount`, `failedCount`, and a `List<String> errors` with one message per failed row
 
 Use Apache Commons CSV for parsing. Don't load the entire file into memory at once.
+
+**Key decisions:**
+- Export streams directly to the response writer instead of building the full file in memory first
+- Import creates tickets one row at a time - if a row fails, the successfully created ones are not rolled back
 
 ---
 
@@ -203,6 +268,10 @@ Write unit tests for all the service classes. Use JUnit 5 and Mockito - no Sprin
 
 Use descriptive method names like `createTicket_withNoAssignee_shouldAutoAssignToLeastBusyDeveloper`.
 
+**Key decisions:**
+- No Spring context in any test - pure unit tests with mocked dependencies only, so they run fast with no infrastructure
+- Test method names follow `methodName_condition_expectedResult` - makes it obvious what each test is checking without reading the body
+
 ---
 
 ## Step 10 - Bug Fixes
@@ -215,6 +284,10 @@ Found a few issues after reviewing the code and running some manual tests:
 - **Auto-assignment missing audit log** - when a ticket gets auto-assigned, no audit log entry is written. Add an `AUTO_ASSIGN` log entry after the assignment
 - **Empty string passes PATCH validation** - sending `{"title": ""}` in a PATCH request goes through even though an empty title shouldn't be valid. The validation needs to block empty strings but still allow `null` (so that omitting a field from the request works correctly for partial updates)
 
+**Key decisions:**
+- The empty string fix was the trickiest - `@NotBlank` rejects null too, which breaks partial updates. Had to use a custom constraint that only rejects non-null empty strings
+- Escalation logic extracted to `EscalationService` so it can be unit tested independently of the scheduler
+
 ---
 
 ## Step 11 - Circular Dependencies & Cascade
@@ -224,6 +297,9 @@ Two more things that need to be added:
 **Cycle detection in dependencies** - right now the system only checks for direct self-dependencies (ticket blocking itself), but it doesn't catch transitive cycles. For example: A blocks B, B blocks C, then adding C blocks A should be rejected - but currently it goes through. Before saving any new dependency, run a BFS (breadth-first search) starting from the new `blockedBy` ticket and walking up the chain. If you reach the ticket that's trying to add the dependency, reject it with a 400.
 
 **Cascade soft delete for projects** - right now soft-deleting a project only marks the project itself as deleted. Its tickets stay active. The correct behavior (and once this is implemented, add the matching unit tests to `ProjectServiceTest`):
-
 - When a project is soft-deleted, all its active (non-deleted) tickets should be soft-deleted in the same transaction. Store the current timestamp in their `deletedAt` fields
 - When the project is restored, only tickets that were deleted *as part of that project deletion* should be restored. Tickets that were individually deleted before the project deletion should stay deleted. One way to track this: store the project's `deletedAt` timestamp in a `projectDeletedAt` field on each ticket that was cascaded, and use that to distinguish them during restore
+
+**Key decisions:**
+- BFS chosen for cycle detection over DFS - easier to reason about and no risk of stack overflow on deep dependency chains
+- Cascade restore uses timestamp matching to distinguish "deleted with the project" from "deleted individually before the project" - simple and doesn't require an extra status field
