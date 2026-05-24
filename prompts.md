@@ -558,23 +558,35 @@ Output ONLY the full Java test code.
 
 ## Prompt 10 - Refinements & Bug Fixes
 
-A set of follow-up corrections discovered while testing the system end-to-end.
+I've been testing everything end-to-end and ran into a few things that don't behave the way I expected. Can you go through these and fix them?
 
-### 10.1 - @Mention: Case-Insensitive Resolution + Re-evaluation on Edit
+### 10.1 - Mentions not working when capitalized
 
-I noticed that mention resolution is case-sensitive - writing `@Alice` won't find the user `alice`. Fix the lookup to be case-insensitive. Also, when a comment is edited, the mentions aren't re-evaluated - the old mention list stays even if the content completely changed. Make sure editing a comment re-parses the new content and updates the mentioned users accordingly. Update any affected tests.
+I created a user with the username "alice", then wrote `@Alice` in a comment and the mention wasn't saved. Looks like the mention lookup cares about capitalization - can you make it work regardless of how the username is typed?
 
-### 10.2 - Auto-Escalation: Three Fixes
+Also I noticed that if I go back and edit a comment and change who I mentioned, the mention list from the original comment stays the same. It should update to reflect what's actually in the edited text.
 
-I found a few issues in the escalation logic. First, the query that fetches overdue tickets for escalation is incorrectly excluding HIGH priority tickets, which means they never get promoted to CRITICAL - fix the exclusion condition so only CRITICAL tickets are excluded. Second, the escalation logic is sitting in a scheduler class directly rather than in a proper service - move it into a dedicated `EscalationService` so it's testable and follows the same structure as the rest of the app. Third, the `isOverdue` field on `Ticket` is computed on the fly rather than persisted - it needs to be a real database column so the service can explicitly set it and it survives across requests. Also add a separate query for tickets that are already CRITICAL but haven't been flagged as overdue yet.
+### 10.2 - Escalation scheduler isn't promoting HIGH tickets
 
-### 10.3 - Auto-Assignment: Audit Log, Sorting & Tie-Breaking
+I've been watching the escalation run and it seems like HIGH priority tickets never get promoted to CRITICAL. LOW and MEDIUM go up fine, but HIGH ones just stay where they are. Something in the query or the logic looks off.
 
-Three small gaps in the auto-assignment flow. When the system auto-assigns a ticket, it should log that as its own audit event with a null actor (since it's a system action, not a user action). Also, when two developers have the same number of open tickets, there's currently no consistent tie-breaking - it should always pick the developer with the lower ID. Finally, the workload endpoint returns results in arbitrary order - sort them ascending by open ticket count.
+Also I wanted to write unit tests for the escalation logic but realized it's all written inside the scheduler directly - there's no service class for it. Every other feature has a service, can you move the logic there so I can test it properly?
 
-### 10.4 - PATCH Validation: Prevent Empty String Updates
+One more thing - the `isOverdue` flag doesn't seem to stay saved. After the scheduler runs and sets it, something resets it. I need it to actually be stored in the database like a real column.
 
-I realized that PATCH requests accept empty strings for fields like name and title, which silently corrupts data. The fix is to add a minimum-length constraint - but it has to be done carefully: using `@NotBlank` would break partial updates because it also rejects null (meaning omitting a field would fail validation). Use `@Size(min = 1)` instead, which allows null but rejects empty strings.
+### 10.3 - Auto-assignment has a few gaps
+
+When a ticket gets auto-assigned, I don't see any entry in the audit log for it. Should there be one? It feels like it should be tracked the same way other actions are.
+
+Also I noticed that when I call the workload endpoint, the order of results seems different every time. Can you make it return them in a consistent order?
+
+And I tested a scenario where all developers had 0 open tickets - the assignment seemed arbitrary. Is there supposed to be a rule for that case?
+
+### 10.4 - Empty string slips through PATCH validation
+
+I sent a PATCH request with `"title": ""` and it saved successfully. That seems like a bug - an empty title shouldn't be valid. Can you add validation to block that?
+
+One catch though - I tried adding `@NotBlank` to the DTO field and it broke partial updates entirely, because it also rejects null and that means you can't omit a field anymore. Is there a way to allow null (field not sent) but still reject empty strings?
 
 ---
 
