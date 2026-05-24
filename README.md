@@ -185,9 +185,19 @@ All errors return a consistent JSON envelope:
   "status": 404,
   "error": "Not Found",
   "message": "Ticket not found: 99",
+  "path": "/api/tickets/99",
   "details": []
 }
 ```
+
+| Field | Description |
+|-------|-------------|
+| `timestamp` | Date and time the error occurred |
+| `status` | HTTP status code (e.g. `404`) |
+| `error` | Short status label (e.g. `"Not Found"`) |
+| `message` | Human-readable explanation of what went wrong |
+| `path` | The request URI that triggered the error |
+| `details` | List of field-level validation errors (non-empty only on `400` validation failures) |
 
 | Status | Condition |
 |--------|-----------|
