@@ -470,19 +470,8 @@ Please generate the following files:
 
 8. **`exception/GlobalExceptionHandler.java`**
    - Annotate with `@RestControllerAdvice`.
-   - Create a clean `ErrorResponse` DTO structure inside this file (contains timestamp, status code, error, message, and details list).
-   - Handle the following exceptions:
-
-   | Exception | HTTP |
-   |---|---|
-   | `ResourceNotFoundException` | 404 |
-   | `ConflictException` | 409 |
-   | `ObjectOptimisticLockingFailureException` | 409 |
-   | `IllegalArgumentException` / `IllegalStateException` | 400 |
-   | `AccessDeniedException` | 403 |
-   | `MethodArgumentNotValidException` | 400 + per-field messages in details list |
-   | `MaxUploadSizeExceededException` | 413 |
-   | `Exception` (catch-all) | 500 |
+   - Define a clean `ErrorResponse` structure inside this file with: timestamp, HTTP status code, short error label, human-readable message, and a details list for field-level errors.
+   - Map every exception type that this application can throw to the correct HTTP status code. Consider: not-found scenarios, conflict scenarios (including optimistic lock failures), bad input (both from service-layer validation and from bean validation on incoming requests), access denied, file size exceeded, and a catch-all for unexpected server errors. For validation errors on request bodies, include per-field messages in the details list.
 
 Output ONLY clean, production-ready Java 21 code for these controllers and handler. Do not add mock services.
 
