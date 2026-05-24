@@ -558,48 +558,23 @@ Output ONLY the full Java test code.
 
 ## Prompt 10 - Refinements & Bug Fixes
 
-Follow-up prompts used to correct specific issues discovered during development or testing.
+A set of follow-up corrections discovered while testing the system end-to-end.
 
 ### 10.1 - @Mention: Case-Insensitive Resolution + Re-evaluation on Edit
 
-`CommentService.parseMentions()` currently uses `findByUsername()` (case-sensitive). Two fixes needed:
-1. Switch to `findByUsernameIgnoreCase()` so `@Alice` and `@alice` both resolve to the same user.
-2. `updateComment()` only updates the content text but doesn't re-evaluate mentions. After setting the new content, also call `parseMentions(request.getContent())` and update `comment.setMentionedUsers(...)` before saving.
-
-Update the corresponding test stubs to match the new method name.
+I noticed that mention resolution is case-sensitive - writing `@Alice` won't find the user `alice`. Fix the lookup to be case-insensitive. Also, when a comment is edited, the mentions aren't re-evaluated - the old mention list stays even if the content completely changed. Make sure editing a comment re-parses the new content and updates the mentioned users accordingly. Update any affected tests.
 
 ### 10.2 - Auto-Escalation: Three Fixes
 
-Three issues found in the escalation logic:
-
-1. `findOverdueTicketsForEscalation()` has `AND t.priority != HIGH` - this blocks the HIGH→CRITICAL promotion. Remove it. The only exclusion should be `AND t.priority != CRITICAL`.
-2. The escalation logic lives in a scheduler class. Move it to a proper `EscalationService` with `@Scheduled` and `@Transactional`.
-3. `Ticket.isOverdue` is currently a `@Transient` computed method. It needs to be a real stored `@Column` so the service can explicitly set and clear the flag. Remove the computed method and add `@Column(name = "is_overdue", nullable = false) private boolean isOverdue;` instead. Also add the column to `schema.sql`: `is_overdue BOOLEAN NOT NULL DEFAULT FALSE`.
-
-Add a second query `findOverdueCriticalWithoutFlag()` for already-CRITICAL overdue tickets where `isOverdue = false`.
+I found a few issues in the escalation logic. First, the query that fetches overdue tickets for escalation is incorrectly excluding HIGH priority tickets, which means they never get promoted to CRITICAL - fix the exclusion condition so only CRITICAL tickets are excluded. Second, the escalation logic is sitting in a scheduler class directly rather than in a proper service - move it into a dedicated `EscalationService` so it's testable and follows the same structure as the rest of the app. Third, the `isOverdue` field on `Ticket` is computed on the fly rather than persisted - it needs to be a real database column so the service can explicitly set it and it survives across requests. Also add a separate query for tickets that are already CRITICAL but haven't been flagged as overdue yet.
 
 ### 10.3 - Auto-Assignment: Audit Log, Sorting & Tie-Breaking
 
-Three gaps in auto-assignment:
-
-1. When auto-assignment fires, log it as action `"AUTO_ASSIGN"` with `null` actor. Add this to `createTicket()` after the ticket is saved:
-   ```java
-   if (request.getAssigneeId() == null && assignee != null) {
-       auditLogService.log("AUTO_ASSIGN", "TICKET", saved.getId(), null);
-   }
-   ```
-2. In `resolveAssignee()`, add tie-breaking so that when two developers have equal ticket counts, the one with the lower user ID (oldest registrant) wins:
-   ```java
-   .min(Comparator.comparingLong(dev -> ticketCountMap.getOrDefault(dev.getId(), 0L))
-       .thenComparingLong(User::getId))
-   ```
-3. `ProjectService.getWorkload()` returns an unsorted list. Add `.sorted(Comparator.comparingLong(WorkloadEntry::getOpenTicketCount))` before collect.
+Three small gaps in the auto-assignment flow. When the system auto-assigns a ticket, it should log that as its own audit event with a null actor (since it's a system action, not a user action). Also, when two developers have the same number of open tickets, there's currently no consistent tie-breaking - it should always pick the developer with the lower ID. Finally, the workload endpoint returns results in arbitrary order - sort them ascending by open ticket count.
 
 ### 10.4 - PATCH Validation: Prevent Empty String Updates
 
-`UpdateProjectRequest` and `UpdateTicketRequest` have no constraints. Sending `{"name": ""}` silently sets the name to an empty string.
-
-Use `@Size(min = 1, message = "...")` (not `@NotBlank`) on the `name` field in `UpdateProjectRequest` and `title` in `UpdateTicketRequest`. The reason for `@Size` over `@NotBlank` is that `@Size` treats `null` as valid - so omitting the field in a PATCH request still passes validation, preserving partial-update semantics. `@NotBlank` would incorrectly reject absent fields.
+I realized that PATCH requests accept empty strings for fields like name and title, which silently corrupts data. The fix is to add a minimum-length constraint - but it has to be done carefully: using `@NotBlank` would break partial updates because it also rejects null (meaning omitting a field would fail validation). Use `@Size(min = 1)` instead, which allows null but rejects empty strings.
 
 ---
 
