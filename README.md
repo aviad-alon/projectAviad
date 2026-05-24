@@ -63,45 +63,45 @@ IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It
 
 ### Users
 
-| Description | Method | Endpoint | Request Body |
-|-------------|--------|----------|-------------|
-| Get all users | GET | `/users` | - |
-| Get user by ID | GET | `/users/:userId` | - |
-| Create a user | POST | `/users` | `{ "username", "email", "fullName", "password", "role" }` |
-| Update a user | PATCH | `/users/:userId` | `{ "fullName", "role" }` |
-| Delete a user | DELETE | `/users/:userId` | - |
-| Get mentions for a user | GET | `/users/:userId/mentions?page=0&pageSize=10` | - |
+| Description | Method | Endpoint | Request Body | Response |
+|-------------|--------|----------|-------------|---------|
+| Get all users | GET | `/users` | - | List of user objects |
+| Get user by ID | GET | `/users/:userId` | - | User object |
+| Create a user | POST | `/users` | `{ "username", "email", "fullName", "password", "role" }` | Created user (`201`) |
+| Update a user | PATCH | `/users/:userId` | `{ "fullName", "role" }` | Updated user object |
+| Delete a user | DELETE | `/users/:userId` | - | `204 No Content` |
+| Get mentions for a user | GET | `/users/:userId/mentions?page=0&pageSize=10` | - | Paginated list of comments |
 
 ---
 
 ### Projects
 
-| Description | Method | Endpoint | Request Body |
-|-------------|--------|----------|-------------|
-| Get all projects | GET | `/projects` | - |
-| Get project by ID | GET | `/projects/:projectId` | - |
-| Create a project | POST | `/projects` | `{ "name", "description", "ownerId" }` |
-| Update a project | PATCH | `/projects/:projectId` | `{ "name", "description" }` |
-| Soft-delete a project | DELETE | `/projects/:projectId` | - |
-| Get workload report | GET | `/projects/:projectId/workload` | - |
-| List deleted projects | GET | `/projects/deleted` | - |
-| Restore a project | POST | `/projects/:projectId/restore` | - |
+| Description | Method | Endpoint | Request Body | Response |
+|-------------|--------|----------|-------------|---------|
+| Get all projects | GET | `/projects` | - | List of project objects |
+| Get project by ID | GET | `/projects/:projectId` | - | Project object |
+| Create a project | POST | `/projects` | `{ "name", "description", "ownerId" }` | Created project (`201`) |
+| Update a project | PATCH | `/projects/:projectId` | `{ "name", "description" }` | Updated project object |
+| Soft-delete a project | DELETE | `/projects/:projectId` | - | `204 No Content` |
+| Get workload report | GET | `/projects/:projectId/workload` | - | Workload summary object |
+| List deleted projects | GET | `/projects/deleted` | - | List of deleted project objects |
+| Restore a project | POST | `/projects/:projectId/restore` | - | Restored project object |
 
 ---
 
 ### Tickets
 
-| Description | Method | Endpoint | Request Body |
-|-------------|--------|----------|-------------|
-| Get tickets by project | GET | `/tickets?projectId=:id` | - |
-| Get ticket by ID | GET | `/tickets/:ticketId` | - |
-| Create a ticket | POST | `/tickets` | `{ "title", "description", "status", "priority", "type", "projectId", "assigneeId"?, "dueDate"? }` |
-| Update a ticket | PATCH | `/tickets/:ticketId` | Any subset of create fields |
-| Soft-delete a ticket | DELETE | `/tickets/:ticketId` | - |
-| Export tickets to CSV | GET | `/tickets/export?projectId=:id` | - |
-| Import tickets from CSV | POST | `/tickets/import` | `multipart/form-data: file, projectId` |
-| List deleted tickets | GET | `/tickets/deleted?projectId=:id` | - |
-| Restore a ticket | POST | `/tickets/:ticketId/restore` | - |
+| Description | Method | Endpoint | Request Body | Response |
+|-------------|--------|----------|-------------|---------|
+| Get tickets by project | GET | `/tickets?projectId=:id` | - | List of ticket objects |
+| Get ticket by ID | GET | `/tickets/:ticketId` | - | Ticket object |
+| Create a ticket | POST | `/tickets` | `{ "title", "description", "status", "priority", "type", "projectId", "assigneeId"?, "dueDate"? }` | Created ticket (`201`) |
+| Update a ticket | PATCH | `/tickets/:ticketId` | Any subset of create fields | Updated ticket object |
+| Soft-delete a ticket | DELETE | `/tickets/:ticketId` | - | `204 No Content` |
+| Export tickets to CSV | GET | `/tickets/export?projectId=:id` | - | CSV file download |
+| Import tickets from CSV | POST | `/tickets/import` | `multipart/form-data: file, projectId` | Import summary object |
+| List deleted tickets | GET | `/tickets/deleted?projectId=:id` | - | List of deleted ticket objects |
+| Restore a ticket | POST | `/tickets/:ticketId/restore` | - | Restored ticket object |
 
 **Ticket enums:**
 - `status`: `TODO` | `IN_PROGRESS` | `IN_REVIEW` | `DONE`
@@ -112,12 +112,12 @@ IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It
 
 ### Comments
 
-| Description | Method | Endpoint | Request Body |
-|-------------|--------|----------|-------------|
-| Get comments for ticket | GET | `/tickets/:ticketId/comments` | - |
-| Add a comment | POST | `/tickets/:ticketId/comments` | `{ "content": "Hello @jdoe!" }` |
-| Update a comment | PATCH | `/tickets/:ticketId/comments/:commentId` | `{ "content": "..." }` |
-| Delete a comment | DELETE | `/tickets/:ticketId/comments/:commentId` | - |
+| Description | Method | Endpoint | Request Body | Response |
+|-------------|--------|----------|-------------|---------|
+| Get comments for ticket | GET | `/tickets/:ticketId/comments` | - | List of comment objects |
+| Add a comment | POST | `/tickets/:ticketId/comments` | `{ "content": "Hello @jdoe!" }` | Created comment (`201`) |
+| Update a comment | PATCH | `/tickets/:ticketId/comments/:commentId` | `{ "content": "..." }` | Updated comment object |
+| Delete a comment | DELETE | `/tickets/:ticketId/comments/:commentId` | - | `204 No Content` |
 
 `@username` mentions in comment content are automatically resolved to user records and returned in `mentionedUsers`.
 
@@ -125,11 +125,11 @@ IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It
 
 ### Ticket Dependencies
 
-| Description | Method | Endpoint | Request Body |
-|-------------|--------|----------|-------------|
-| Add a dependency | POST | `/tickets/:ticketId/dependencies` | `{ "blockedBy": 42 }` |
-| List dependencies | GET | `/tickets/:ticketId/dependencies` | - |
-| Remove a dependency | DELETE | `/tickets/:ticketId/dependencies/:blockerId` | - |
+| Description | Method | Endpoint | Request Body | Response |
+|-------------|--------|----------|-------------|---------|
+| Add a dependency | POST | `/tickets/:ticketId/dependencies` | `{ "blockedBy": 42 }` | Created dependency (`201`) |
+| List dependencies | GET | `/tickets/:ticketId/dependencies` | - | List of dependency objects |
+| Remove a dependency | DELETE | `/tickets/:ticketId/dependencies/:blockerId` | - | `204 No Content` |
 
 Rules: both tickets must belong to the same project; self-dependencies and duplicates are rejected.
 
@@ -137,10 +137,10 @@ Rules: both tickets must belong to the same project; self-dependencies and dupli
 
 ### Attachments
 
-| Description | Method | Endpoint | Request Body |
-|-------------|--------|----------|-------------|
-| Upload attachment | POST | `/tickets/:ticketId/attachments` | `multipart/form-data: file` |
-| Delete attachment | DELETE | `/tickets/:ticketId/attachments/:attachmentId` | - |
+| Description | Method | Endpoint | Request Body | Response |
+|-------------|--------|----------|-------------|---------|
+| Upload attachment | POST | `/tickets/:ticketId/attachments` | `multipart/form-data: file` | Created attachment (`201`) |
+| Delete attachment | DELETE | `/tickets/:ticketId/attachments/:attachmentId` | - | `204 No Content` |
 
 Allowed types: `image/png`, `image/jpeg`, `application/pdf`, `text/plain`. Max size: 10 MB.
 
@@ -148,9 +148,9 @@ Allowed types: `image/png`, `image/jpeg`, `application/pdf`, `text/plain`. Max s
 
 ### Audit Logs
 
-| Description | Method | Endpoint | Query Params |
-|-------------|--------|----------|-------------|
-| Get audit logs | GET | `/audit-logs` | `entityType`, `entityId`, `action` (all optional) |
+| Description | Method | Endpoint | Query Params | Response |
+|-------------|--------|----------|-------------|---------|
+| Get audit logs | GET | `/audit-logs` | `entityType`, `entityId`, `action` (all optional) | List of audit log objects |
 
 Logged actions: `CREATE`, `UPDATE`, `DELETE`, `RESTORE`, `ADD_COMMENT`, `AUTO_ESCALATE`, `UPLOAD_ATTACHMENT`, `AUTO_ASSIGN`.
 
