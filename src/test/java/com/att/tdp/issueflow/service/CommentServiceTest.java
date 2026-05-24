@@ -80,7 +80,6 @@ class CommentServiceTest {
                         "Hey @alice and @bob, please review.", List.of(alice, bob)));
 
         CreateCommentRequest req = CreateCommentRequest.builder()
-                .authorId(author.getId())
                 .content("Hey @alice and @bob, please review.")
                 .build();
 
@@ -105,7 +104,7 @@ class CommentServiceTest {
                 .thenReturn(savedComment(42L, t, author, "Hey @nobody!", List.of()));
 
         commentService.addComment(5L,
-                CreateCommentRequest.builder().authorId(1L).content("Hey @nobody!").build(),
+                CreateCommentRequest.builder().content("Hey @nobody!").build(),
                 author);
 
         ArgumentCaptor<Comment> captor = ArgumentCaptor.forClass(Comment.class);
@@ -123,7 +122,7 @@ class CommentServiceTest {
                 .thenReturn(savedComment(55L, t, author, "Plain comment.", List.of()));
 
         commentService.addComment(7L,
-                CreateCommentRequest.builder().authorId(1L).content("Plain comment.").build(),
+                CreateCommentRequest.builder().content("Plain comment.").build(),
                 author);
 
         // No @ in content → userRepository must not be touched at all
@@ -150,7 +149,7 @@ class CommentServiceTest {
                         "@alice @bob @carol LGTM!", List.of(alice, bob, carol)));
 
         commentService.addComment(20L,
-                CreateCommentRequest.builder().authorId(4L).content("@alice @bob @carol LGTM!").build(),
+                CreateCommentRequest.builder().content("@alice @bob @carol LGTM!").build(),
                 author);
 
         ArgumentCaptor<Comment> captor = ArgumentCaptor.forClass(Comment.class);
@@ -173,7 +172,7 @@ class CommentServiceTest {
                         "cc @alice and @ghost", List.of(alice)));
 
         commentService.addComment(30L,
-                CreateCommentRequest.builder().authorId(2L).content("cc @alice and @ghost").build(),
+                CreateCommentRequest.builder().content("cc @alice and @ghost").build(),
                 author);
 
         ArgumentCaptor<Comment> captor = ArgumentCaptor.forClass(Comment.class);
@@ -188,7 +187,7 @@ class CommentServiceTest {
                 .thenThrow(new ResourceNotFoundException("Ticket not found: 999"));
 
         assertThatThrownBy(() -> commentService.addComment(999L,
-                CreateCommentRequest.builder().authorId(1L).content("test").build(),
+                CreateCommentRequest.builder().content("test").build(),
                 user(1L, "alice")))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("999");
@@ -206,7 +205,7 @@ class CommentServiceTest {
         when(commentRepository.save(any(Comment.class))).thenReturn(saved);
 
         commentService.addComment(10L,
-                CreateCommentRequest.builder().authorId(1L).content("Hello").build(),
+                CreateCommentRequest.builder().content("Hello").build(),
                 author);
 
         verify(auditLogService).log("ADD_COMMENT", "COMMENT", 77L, author);
@@ -222,11 +221,12 @@ class CommentServiceTest {
         Ticket t    = ticket(10L);
         Comment existing = savedComment(50L, t, author, "Old content", List.of());
 
+        when(ticketService.findActiveTicketOrThrow(10L)).thenReturn(t);
         when(commentRepository.findById(50L)).thenReturn(Optional.of(existing));
         Comment updated = savedComment(50L, t, author, "New content", List.of());
         when(commentRepository.save(any(Comment.class))).thenReturn(updated);
 
-        commentService.updateComment(50L,
+        commentService.updateComment(10L, 50L,
                 UpdateCommentRequest.builder().content("New content").build(),
                 author);
 
@@ -241,11 +241,29 @@ class CommentServiceTest {
     void updateComment_commentNotFound_throwsResourceNotFoundException() {
         when(commentRepository.findById(404L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> commentService.updateComment(404L,
+        assertThatThrownBy(() -> commentService.updateComment(10L, 404L,
                 UpdateCommentRequest.builder().content("anything").build(),
                 user(1L, "alice")))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("404");
+
+        verify(commentRepository, never()).save(any());
+    }
+
+    @Test
+    void updateComment_wrongTicketId_throwsResourceNotFoundException() {
+        User author  = user(1L, "alice");
+        Ticket t     = ticket(10L);   // comment belongs to ticket 10
+        Comment existing = savedComment(50L, t, author, "Content", List.of());
+
+        when(commentRepository.findById(50L)).thenReturn(Optional.of(existing));
+
+        // ticketId=20 but comment belongs to ticket 10 → should throw
+        assertThatThrownBy(() -> commentService.updateComment(20L, 50L,
+                UpdateCommentRequest.builder().content("Updated").build(),
+                author))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("50");
 
         verify(commentRepository, never()).save(any());
     }
@@ -256,13 +274,14 @@ class CommentServiceTest {
 
     @Test
     void deleteComment_existingComment_deletesAndLogsAudit() {
-        User author = user(1L, "alice");
-        Ticket t    = ticket(10L);
+        User author  = user(1L, "alice");
+        Ticket t     = ticket(10L);
         Comment existing = savedComment(50L, t, author, "Some comment", List.of());
 
+        when(ticketService.findActiveTicketOrThrow(10L)).thenReturn(t);
         when(commentRepository.findById(50L)).thenReturn(Optional.of(existing));
 
-        commentService.deleteComment(50L, author);
+        commentService.deleteComment(10L, 50L, author);
 
         verify(commentRepository).delete(existing);
         verify(auditLogService).log("DELETE", "COMMENT", 50L, author);
@@ -272,9 +291,25 @@ class CommentServiceTest {
     void deleteComment_commentNotFound_throwsResourceNotFoundException() {
         when(commentRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> commentService.deleteComment(999L, user(1L, "alice")))
+        assertThatThrownBy(() -> commentService.deleteComment(10L, 999L, user(1L, "alice")))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("999");
+
+        verify(commentRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteComment_wrongTicketId_throwsResourceNotFoundException() {
+        User author  = user(1L, "alice");
+        Ticket t     = ticket(10L);   // comment belongs to ticket 10
+        Comment existing = savedComment(50L, t, author, "Content", List.of());
+
+        when(commentRepository.findById(50L)).thenReturn(Optional.of(existing));
+
+        // ticketId=20 but comment belongs to ticket 10 → should throw
+        assertThatThrownBy(() -> commentService.deleteComment(20L, 50L, author))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("50");
 
         verify(commentRepository, never()).delete(any());
     }

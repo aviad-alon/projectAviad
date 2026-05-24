@@ -77,7 +77,7 @@ class TicketServiceTest {
         Project proj = project(projectId);
 
         when(projectService.findActiveProjectOrThrow(projectId)).thenReturn(proj);
-        when(userRepository.findAll()).thenReturn(List.of(dev1, dev2));
+        when(userRepository.findByRole(UserRole.DEVELOPER)).thenReturn(List.of(dev1, dev2));
 
         // dev1 → 3 open, dev2 → 1 open
         when(ticketRepository.countOpenTicketsPerAssigneeInProject(projectId))
@@ -110,7 +110,7 @@ class TicketServiceTest {
         Project proj = project(projectId);
 
         when(projectService.findActiveProjectOrThrow(projectId)).thenReturn(proj);
-        when(userRepository.findAll()).thenReturn(List.of(dev1, dev2));
+        when(userRepository.findByRole(UserRole.DEVELOPER)).thenReturn(List.of(dev1, dev2));
         when(ticketRepository.countOpenTicketsPerAssigneeInProject(projectId))
                 .thenReturn(Collections.emptyList()); // nobody has tickets yet
 
@@ -134,14 +134,14 @@ class TicketServiceTest {
 
     @Test
     void createTicket_tiedWorkload_assignsDevWithLowerId() {
-        // dev2 appears first in findAll() but has a higher ID → dev1 should win
+        // dev2 appears first in findByRole() but has a higher ID → dev1 should win
         User dev1 = developer(1L, "dev1");
         User dev2 = developer(2L, "dev2");
         long projectId = 5L;
         Project proj = project(projectId);
 
         when(projectService.findActiveProjectOrThrow(projectId)).thenReturn(proj);
-        when(userRepository.findAll()).thenReturn(List.of(dev2, dev1));  // dev2 listed first
+        when(userRepository.findByRole(UserRole.DEVELOPER)).thenReturn(List.of(dev2, dev1));  // dev2 listed first
 
         // Both have exactly 1 open ticket - equal workload
         when(ticketRepository.countOpenTicketsPerAssigneeInProject(projectId))
@@ -169,16 +169,15 @@ class TicketServiceTest {
         Project proj = project(projectId);
 
         when(projectService.findActiveProjectOrThrow(projectId)).thenReturn(proj);
-        // Only a MANAGER in the system - no DEVELOPER
-        User manager = User.builder().id(5L).username("mgr").email("mgr@x.com")
-                .fullName("Mgr").role(UserRole.ADMIN).password("pw").build();
-        when(userRepository.findAll()).thenReturn(List.of(manager));
+        when(userRepository.findByRole(UserRole.DEVELOPER)).thenReturn(Collections.emptyList());
 
         Ticket saved = activeTicket(60L, TicketStatus.TODO, TicketPriority.LOW);
         saved.setProject(proj);
         saved.setAssignee(null);
         when(ticketRepository.save(any(Ticket.class))).thenReturn(saved);
 
+        User manager = User.builder().id(5L).username("mgr").email("mgr@x.com")
+                .fullName("Mgr").role(UserRole.ADMIN).password("pw").build();
         CreateTicketRequest req = CreateTicketRequest.builder()
                 .title("Unassigned Task").priority(TicketPriority.LOW)
                 .type(TicketType.TECHNICAL).projectId(projectId).build();
@@ -236,8 +235,8 @@ class TicketServiceTest {
         verify(ticketRepository).save(captor.capture());
         assertThat(captor.getValue().getAssignee()).isEqualTo(specificDev);
 
-        // Auto-assignment logic (findAll + countOpenTickets) must NOT be invoked
-        verify(userRepository, never()).findAll();
+        // Auto-assignment logic (findByRole + countOpenTickets) must NOT be invoked
+        verify(userRepository, never()).findByRole(any(UserRole.class));
         verify(ticketRepository, never()).countOpenTicketsPerAssigneeInProject(any());
     }
 
@@ -418,6 +417,26 @@ class TicketServiceTest {
         assertThatThrownBy(() -> ticketService.updateTicket(22L, req, developer(1L, "alice")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("unresolved blocker");
+
+        verify(ticketRepository, never()).save(any());
+    }
+
+    @Test
+    void updateTicket_nonDeveloperAssignee_throwsIllegalArgumentException() {
+        Ticket ticket = activeTicket(9L, TicketStatus.TODO, TicketPriority.LOW);
+        when(ticketRepository.findByIdAndDeletedAtIsNull(9L)).thenReturn(Optional.of(ticket));
+
+        User manager = User.builder().id(5L).username("mgr").email("mgr@x.com")
+                .fullName("Mgr").role(UserRole.ADMIN).password("pw").build();
+        when(userRepository.findById(5L)).thenReturn(Optional.of(manager));
+
+        UpdateTicketRequest req = UpdateTicketRequest.builder()
+                .assigneeId(5L)
+                .build();
+
+        assertThatThrownBy(() -> ticketService.updateTicket(9L, req, developer(1L, "alice")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("DEVELOPER");
 
         verify(ticketRepository, never()).save(any());
     }

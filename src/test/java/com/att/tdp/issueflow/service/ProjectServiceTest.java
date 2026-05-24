@@ -13,6 +13,7 @@ import com.att.tdp.issueflow.enums.UserRole;
 import com.att.tdp.issueflow.exception.ResourceNotFoundException;
 import com.att.tdp.issueflow.repository.ProjectRepository;
 import com.att.tdp.issueflow.repository.TicketRepository;
+import com.att.tdp.issueflow.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -34,6 +35,7 @@ class ProjectServiceTest {
 
     @Mock private ProjectRepository projectRepository;
     @Mock private TicketRepository  ticketRepository;
+    @Mock private UserRepository    userRepository;
     @Mock private UserService       userService;
     @Mock private AuditLogService   auditLogService;
 
@@ -216,6 +218,7 @@ class ProjectServiceTest {
 
         when(projectRepository.findById(4L)).thenReturn(Optional.of(deleted));
         when(projectRepository.save(any(Project.class))).thenReturn(deleted);
+        when(ticketRepository.findByProjectIdAndDeletedAtIsNotNull(4L)).thenReturn(List.of());
 
         User actor = actor();
         ProjectResponse response = projectService.restoreProject(4L, actor);
@@ -246,15 +249,17 @@ class ProjectServiceTest {
     @SuppressWarnings("unchecked")
     void restoreProject_cascadesToDeletedTickets() {
         User owner = owner(1L);
+        LocalDateTime deletedAt = LocalDateTime.now().minusDays(1);   // shared timestamp
         Project deleted = activeProject(4L, "Deleted", owner);
-        deleted.setDeletedAt(LocalDateTime.now().minusDays(1));
+        deleted.setDeletedAt(deletedAt);
         when(projectRepository.findById(4L)).thenReturn(Optional.of(deleted));
         when(projectRepository.save(any(Project.class))).thenReturn(deleted);
 
+        // Ticket deleted at the same instant as the project (cascade-deleted)
         Ticket t1 = Ticket.builder().id(1L).title("T1")
                 .status(TicketStatus.TODO).priority(TicketPriority.LOW)
                 .type(TicketType.BUG).project(deleted)
-                .deletedAt(LocalDateTime.now().minusDays(1)).build();
+                .deletedAt(deletedAt).build();   // exact same timestamp
         when(ticketRepository.findByProjectIdAndDeletedAtIsNotNull(4L)).thenReturn(List.of(t1));
 
         projectService.restoreProject(4L, actor());
@@ -264,6 +269,43 @@ class ProjectServiceTest {
         List<Ticket> saved = (List<Ticket>) captor.getValue();
         assertThat(saved).hasSize(1);
         assertThat(saved.get(0).getDeletedAt()).isNull();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void restoreProject_doesNotRestoreIndividuallyDeletedTickets() {
+        User owner = owner(1L);
+        LocalDateTime projectDeletedAt = LocalDateTime.now().minusDays(1);
+        LocalDateTime earlierDeletion  = LocalDateTime.now().minusDays(5);  // deleted before project
+
+        Project deleted = activeProject(4L, "Deleted", owner);
+        deleted.setDeletedAt(projectDeletedAt);
+        when(projectRepository.findById(4L)).thenReturn(Optional.of(deleted));
+        when(projectRepository.save(any(Project.class))).thenReturn(deleted);
+
+        // Cascade-deleted ticket - same timestamp as project
+        Ticket cascadeTicket = Ticket.builder().id(1L).title("Cascade")
+                .status(TicketStatus.TODO).priority(TicketPriority.LOW)
+                .type(TicketType.BUG).project(deleted)
+                .deletedAt(projectDeletedAt).build();
+
+        // Individually-deleted ticket - different (earlier) timestamp
+        Ticket individualTicket = Ticket.builder().id(2L).title("Individual")
+                .status(TicketStatus.TODO).priority(TicketPriority.LOW)
+                .type(TicketType.BUG).project(deleted)
+                .deletedAt(earlierDeletion).build();
+
+        when(ticketRepository.findByProjectIdAndDeletedAtIsNotNull(4L))
+                .thenReturn(List.of(cascadeTicket, individualTicket));
+
+        projectService.restoreProject(4L, actor());
+
+        ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
+        verify(ticketRepository).saveAll(captor.capture());
+        List<Ticket> saved = (List<Ticket>) captor.getValue();
+        // Only the cascade-deleted ticket should be restored
+        assertThat(saved).hasSize(1);
+        assertThat(saved.get(0).getId()).isEqualTo(1L);
     }
 
     @Test
