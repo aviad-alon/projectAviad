@@ -12,7 +12,7 @@ This file documents the prompts used throughout the development of the IssueFlow
 
 ---
 
-## First Prompt
+## Prompt 0 - Project Analysis & Implementation Planning
 
 I have a homework assignment for the AT&T TDP 2026 program located in my current working directory. The project is called IssueFlow - a ticket management backend platform.
 
@@ -28,7 +28,7 @@ Then do the following:
 
 ---
 
-## Second Prompt
+## Prompt 0.5 - Architecture Strategy Exploration (Vertical Slicing)
 
 You are a Senior Java and Spring Boot Software Architect. We are building the "IssueFlow" backend using the existing skeleton in `issueflow-java/`.
 
@@ -53,7 +53,7 @@ Please analyze the existing skeleton structure and provide the steps and code to
 
 ---
 
-## Step 1
+## Step 1 - Database Schema
 
 You are a Senior PostgreSQL Database Architect. I am building the "IssueFlow" backend system. We are following a strict Horizontal Slicing development strategy.
 
@@ -79,7 +79,7 @@ Do NOT generate any Java code at this stage. ONLY output the raw `schema.sql` co
 
 ---
 
-## Step 2
+## Step 2 - Entities & Enums
 
 You are a Senior Java and Hibernate/JPA Architect. We are continuing the development of the "IssueFlow" backend using the Horizontal Slicing strategy.
 
@@ -142,7 +142,7 @@ Please write clean, production-ready Java 21 files for each of these classes.
 
 ---
 
-## Step 3
+## Step 3 - DTOs (Request & Response Objects)
 
 You are a Senior Java and Spring Boot Architect. We are continuing the "IssueFlow" backend project following our strict Horizontal Slicing strategy.
 
@@ -194,7 +194,7 @@ Rules for this interaction:
 
 ---
 
-## Step 4
+## Step 4 - Repositories (Data Access Layer)
 
 You are a Senior Java and Spring Boot Architect. We are continuing the "IssueFlow" backend project following our strict Horizontal Slicing strategy.
 
@@ -249,7 +249,7 @@ Rules for this interaction:
 
 ---
 
-## Step 5
+## Step 5 - JWT Security Layer
 
 You are a Senior Spring Security Expert. We are continuing the "IssueFlow" backend project following our Horizontal Slicing strategy.
 
@@ -295,7 +295,7 @@ Rules for this interaction:
 
 ---
 
-## Step 6
+## Step 6 - All Services (Business Logic)
 
 ### 6.1
 
@@ -408,7 +408,7 @@ Please generate both complete service classes.
 
 ---
 
-## Step 7
+## Step 7 - All Controllers & Exception Handling
 
 You are a Senior Java and Spring Boot Web Architect. We are entering the final structural phase of the "IssueFlow" backend: **Step 7: All Controllers & Exception Handling**.
 
@@ -488,7 +488,7 @@ Output ONLY clean, production-ready Java 21 code for these controllers and handl
 
 ---
 
-## Step 8
+## Step 8 - CSV Import/Export
 
 You are a Senior Spring Boot Developer. We are now implementing the final functional requirements for the "IssueFlow" backend: **CSV Import/Export**.
 
@@ -512,7 +512,7 @@ Output ONLY the production-ready Java code for the CSV Service methods and the C
 
 ---
 
-## Step 9
+## Step 9 - Unit Tests & Documentation
 
 You are a Senior QA Automation Engineer and Java Testing Expert. We are completing the final phase of the "IssueFlow" backend project: **Step 9: Unit Tests**.
 
