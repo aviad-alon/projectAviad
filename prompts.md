@@ -303,3 +303,4 @@ Two more things that need to be added:
 **Key decisions:**
 - BFS chosen for cycle detection over DFS - easier to reason about and no risk of stack overflow on deep dependency chains
 - Cascade restore uses timestamp matching to distinguish "deleted with the project" from "deleted individually before the project" - simple and doesn't require an extra status field
+
