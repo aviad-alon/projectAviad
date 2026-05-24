@@ -8,6 +8,26 @@
 
 ---
 
+## Working Methodology
+
+Claude Code was used via a standard subscription inside Visual Studio Code. The agent had direct access to the terminal and the full project directory throughout the entire development session.
+
+The workflow followed a structured plan prepared in advance during Step 0 - before writing any code, I asked the agent to analyze the full assignment and produce a 3-day implementation plan. That plan served as the backbone for all subsequent prompts, which were written and refined based on it rather than improvised on the fly.
+
+For each completed step, I researched the topic independently and asked the agent to produce organized documentation alongside the code - so I could understand what was generated and why, not just accept it as output. This made it easier to review each layer before moving to the next.
+
+**Challenge - context window exhaustion:**
+The main technical challenge was that the conversation context filled up quickly during long implementation sessions. My solution was to request a structured handoff summary before ending each session, in this format:
+
+> "We are about to close this conversation and open a fresh one. Please generate a `project_status.md` file containing: a short description of the current architecture; which components and code files have been fully written (including key function signatures); important technical decisions we made; and the exact list of next steps to continue the next vertical slice."
+
+This allowed each new session to resume from a precise, well-defined state without losing progress.
+
+**Code review:**
+Every piece of generated code went through a review pass - both by the agent (asked to self-review for bugs, edge cases, and consistency) and by me. Corrections and improvements were applied iteratively before moving forward.
+
+---
+
 This file documents the prompts used throughout the development of the IssueFlow backend. Prompts are listed in order of use, grouped by development phase.
 
 ---
