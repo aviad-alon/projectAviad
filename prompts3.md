@@ -57,7 +57,7 @@ Make sure the schema can support all the features: auto-assignment, scheduled es
 Now translate the schema into JPA entities and Java enums. Use Lombok on all entities (`@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`). A few important constraints:
 
 - The `isOverdue` field on `Ticket` must persist to the database - map it with `@Column`, not `@Transient`
-- Add `@Version` for optimistic locking on entities that could have concurrent updates (tickets, projects)
+- Add `@Version` for optimistic locking on entities that could have concurrent updates (tickets, comments)
 - Bidirectional relationships will cause infinite loops during JSON serialization - handle that with `@JsonManagedReference` / `@JsonBackReference` or `@JsonIgnore` where appropriate
 - Enums: `TicketStatus` (TODO, IN_PROGRESS, IN_REVIEW, DONE), `TicketPriority` (LOW, MEDIUM, HIGH, CRITICAL), `TicketType` (BUG, FEATURE, TECHNICAL), `UserRole` (ADMIN, DEVELOPER)
 - Use `@CreationTimestamp` and `@UpdateTimestamp` for audit fields instead of setting them manually
@@ -95,7 +95,7 @@ Add Spring Security with stateless JWT authentication. The requirements:
 
 - Public endpoints (no token needed): `POST /api/users` and `POST /api/auth/login`
 - Everything else requires a valid JWT in the `Authorization: Bearer <token>` header
-- JWT should include the user ID and role as claims, and expire after 1 hour
+- JWT should include the user ID and role as claims, and expire after 24 hours
 - Logout must actually invalidate the token on the server side - keep a blacklist in memory (a `Set<String>` is fine) so a logged-out token can't be reused even if it hasn't expired yet
 - Map `UserRole.ADMIN` to Spring Security authority `ROLE_ADMIN` and `UserRole.DEVELOPER` to `ROLE_DEVELOPER`
 - Return 401 for missing/invalid tokens and 403 for valid tokens with insufficient role
@@ -159,7 +159,7 @@ Implement `CommentService` with live mention parsing. When a comment is added or
 Implement the last two services.
 
 **CsvService** (use Apache Commons CSV):
-- `exportTicketsToCsv(projectId, writer)` - write all active tickets for the project to CSV with columns: ID, Title, Status, Priority, Type, Assignee username
+- `exportTicketsToCsv(projectId, writer)` - write all active tickets for the project to CSV with columns: ID, Title, Description, Status, Priority, Type, AssigneeId
 - `importTicketsFromCsv(inputStream, projectId, currentUser)` - parse row by row, apply auto-assignment if no assignee column is provided. If a row fails for any reason, log the error and skip it - don't abort the whole import. Return a `CsvImportResult` with `successfulCount`, `failedCount`, and a list of error messages
 
 **EscalationService** (annotate with `@Scheduled(fixedRate = 60_000)` and `@Transactional`):
@@ -184,8 +184,8 @@ Wire up all the REST controllers. Important things to get right:
 
 Add two endpoints for bulk ticket operations:
 
-- **Export** - `GET /api/tickets/export?projectId=X` - streams a CSV file as a download (content-type `text/csv`). Include columns for: id, title, description, status, priority, type, assignee username, due date
-- **Import** - `POST /api/tickets/import` - accepts a `multipart/form-data` request with a `file` field and a `projectId` field. Read the CSV row by row. If a row fails validation or parsing, log the error and skip it - don't abort the whole import. Return a JSON summary object with `successCount`, `failureCount`, and a `List<String> errors` with one message per failed row
+- **Export** - `GET /api/tickets/export?projectId=X` - streams a CSV file as a download (content-type `text/csv`). Include columns for: ID, Title, Description, Status, Priority, Type, AssigneeId
+- **Import** - `POST /api/tickets/import` - accepts a `multipart/form-data` request with a `file` field and a `projectId` field. Read the CSV row by row. If a row fails validation or parsing, log the error and skip it - don't abort the whole import. Return a JSON summary object with `successfulCount`, `failedCount`, and a `List<String> errors` with one message per failed row
 
 Use Apache Commons CSV for parsing. Don't load the entire file into memory at once.
 
@@ -200,7 +200,6 @@ Write unit tests for all the service classes. Use JUnit 5 and Mockito - no Sprin
 - **Dependency blocking**: verify that trying to close a ticket with open blockers returns a 400
 - **Mention parsing**: `@Alice` should match a user registered as `alice` (case-insensitive). Unknown usernames should be silently skipped
 - **Escalation**: LOW → MEDIUM → HIGH → CRITICAL. A CRITICAL ticket should stay CRITICAL and not throw. A non-overdue ticket with a future due date should not be escalated
-- **Cascade soft delete**: deleting a project should soft-delete all its active tickets in the same call
 
 Use descriptive method names like `createTicket_withNoAssignee_shouldAutoAssignToLeastBusyDeveloper`.
 
@@ -224,6 +223,7 @@ Two more things that need to be added:
 
 **Cycle detection in dependencies** - right now the system only checks for direct self-dependencies (ticket blocking itself), but it doesn't catch transitive cycles. For example: A blocks B, B blocks C, then adding C blocks A should be rejected - but currently it goes through. Before saving any new dependency, run a BFS (breadth-first search) starting from the new `blockedBy` ticket and walking up the chain. If you reach the ticket that's trying to add the dependency, reject it with a 400.
 
-**Cascade soft delete for projects** - right now soft-deleting a project only marks the project itself as deleted. Its tickets stay active. The correct behavior:
+**Cascade soft delete for projects** - right now soft-deleting a project only marks the project itself as deleted. Its tickets stay active. The correct behavior (and once this is implemented, add the matching unit tests to `ProjectServiceTest`):
+
 - When a project is soft-deleted, all its active (non-deleted) tickets should be soft-deleted in the same transaction. Store the current timestamp in their `deletedAt` fields
 - When the project is restored, only tickets that were deleted *as part of that project deletion* should be restored. Tickets that were individually deleted before the project deletion should stay deleted. One way to track this: store the project's `deletedAt` timestamp in a `projectDeletedAt` field on each ticket that was cascaded, and use that to distinguish them during restore
