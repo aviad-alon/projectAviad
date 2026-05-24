@@ -20,18 +20,18 @@ Built with Java 21 and Spring Boot. 69 unit tests, no Spring context.
 
 ## Functionality
 
-- **Users API** - manages user identities behind ticket assignments and comments.
-- **Projects API** - manages top-level containers that group related tickets.
-- **Tickets API** - manages the core work items (issues) tracked in the system.
-- **Comments API** - manages user comments on tickets.
-- **Audit Log API** - read-only log of all state-changing actions in the system.
-- **Dependencies API** - manages ticket-to-ticket blocker relationships.
-- **Attachments API** - manages file attachments on tickets.
-- **Export/Import API** - supports bulk ticket export and import via CSV.
-- **Soft Delete API** - tickets and projects are soft-deleted and can be restored by ADMIN users.
-- **Mentions API** - `@username` mentions in comments are validated, persisted, and retrievable per user.
-- **Auto-Escalation** - a background scheduler automatically escalates ticket priority when a due date is exceeded.
-- **Auto-Assignment** - tickets without an explicit assignee are automatically assigned to the least-loaded DEVELOPER in the project.
+- **Projects API** - groups related tickets under a named workspace with an assigned owner.
+- **Tickets API** - tracks individual work items with type, priority, status, assignee, and due date.
+- **Users API** - handles user accounts and exposes role information used across assignments and access control.
+- **Comments API** - allows users to leave notes on tickets with support for inline user mentions.
+- **Mentions API** - parses `@username` tags from comment content, links them to user records, and makes them queryable per user.
+- **Dependencies API** - lets tickets declare blockers and validates that no circular chains are formed.
+- **Attachments API** - accepts file uploads scoped to a ticket (images, PDFs, and plain text up to 10 MB).
+- **Export/Import API** - transfers ticket data in and out of a project via CSV files.
+- **Soft Delete API** - marks tickets and projects as deleted without removing them from the database, with admin-controlled restore.
+- **Audit Log API** - records every write action in the system with the entity type, entity ID, and action name.
+- **Auto-Assignment** - when no assignee is specified on creation, the ticket is routed to the developer with the lightest current workload.
+- **Auto-Escalation** - a scheduled job checks for overdue tickets every minute and raises their priority one level until they reach CRITICAL.
 
 ---
 
@@ -53,7 +53,7 @@ Built with Java 21 and Spring Boot. 69 unit tests, no Spring context.
 
 ## Key Design Decisions
 
-- **Soft delete via `deletedAt` timestamp** - nothing is permanently deleted; records get a timestamp instead, and admins can restore them at any time.
+- **Soft delete via `deletedAt` timestamp** - nothing is permanently deleted, records get a timestamp instead, and admins can restore them at any time.
 - **Cascaded soft delete** - deleting a project also soft-deletes all its tickets in the same transaction, and restoring it brings them back too.
 - **`TicketDependency` as its own entity** - I modeled dependencies as a separate table rather than a simple field, which made it easier to validate them, log them, and run cycle detection on them.
 - **BFS cycle detection** - before saving a new dependency, the code runs a breadth-first search through the existing graph to make sure no cycle would be created.
@@ -150,7 +150,7 @@ Built with Java 21 and Spring Boot. 69 unit tests, no Spring context.
 | List dependencies | GET | `/tickets/:ticketId/dependencies` | - | List of dependency objects (`200`) |
 | Remove a dependency | DELETE | `/tickets/:ticketId/dependencies/:blockerId` | - | `204 No Content` |
 
-Rules: both tickets must belong to the same project; self-dependencies and duplicates are rejected.
+Rules: both tickets must belong to the same project. Self-dependencies and duplicates are rejected.
 
 ---
 
