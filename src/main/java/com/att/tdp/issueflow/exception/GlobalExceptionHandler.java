@@ -5,6 +5,7 @@ import lombok.Data;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -77,6 +78,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
         return build(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage(), null);
+    }
+
+    // ---------------------------------------------------------------
+    // 401 - invalid credentials (wrong username or password)
+    // ---------------------------------------------------------------
+    /** Handles BadCredentialsException and returns a 401 Unauthorized response. */
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex) {
+        return build(HttpStatus.UNAUTHORIZED, "Unauthorized", "Invalid username or password", null);
     }
 
     // ---------------------------------------------------------------
