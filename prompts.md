@@ -19,7 +19,7 @@ For each completed step, I researched the topic independently and asked the agen
 **Challenge - context window exhaustion:**
 The main technical challenge was that the conversation context filled up quickly during long implementation sessions. My solution was to request a structured handoff summary before ending each session, in this format:
 
-> "We are about to close this conversation and open a fresh one. Please generate a `project_status.md` file containing: a short description of the current architecture; which components and code files have been fully written (including key function signatures); important technical decisions we made; and the exact list of next steps to continue the next vertical slice."
+*"We are about to close this conversation and open a fresh one. Please generate a `project_status.md` file containing: a short description of the current architecture, which components and code files have been fully written (including key function signatures), important technical decisions we made, and the exact list of next steps to continue the next vertical slice."*
 
 This allowed each new session to resume from a precise, well-defined state without losing progress.
 
