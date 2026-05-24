@@ -33,7 +33,10 @@ IssueFlow is a production-grade REST API for project and issue tracking, built w
 ## Key Design Decisions
 
 - **Soft delete via `deletedAt` timestamp** - records are never hard-deleted; the exact deletion time is preserved and admins can restore them at any time.
-- **`TicketDependency` as a first-class entity** - dependencies have their own repository and service (`DependencyService`), enabling audit logging, cross-project validation, and duplicate detection.
+- **Cascaded soft delete** - deleting a project also soft-deletes all its active tickets in the same transaction; restoring a project restores all its tickets automatically.
+- **`TicketDependency` as a first-class entity** - dependencies have their own repository and service (`DependencyService`), enabling audit logging, cross-project validation, duplicate detection, and circular dependency prevention.
+- **BFS cycle detection** - before persisting a new dependency edge, a breadth-first search traverses the existing dependency graph to reject any edge that would form a cycle.
+- **Forward-only status transitions** - tickets move `TODO -> IN_PROGRESS -> IN_REVIEW -> DONE` only; backward transitions and updates to a DONE ticket are rejected. Transitioning to DONE requires all blocker tickets to be resolved first.
 - **Optimistic locking (`@Version`)** - all mutable entities carry a version column; concurrent updates return `409 Conflict` instead of silently overwriting data.
 - **Centralized error handling (`GlobalExceptionHandler`)** - every exception maps to a consistent JSON envelope with `timestamp`, `status`, `error`, and `message`.
 - **Token blacklist** - `POST /api/auth/logout` invalidates the JWT server-side so stolen tokens cannot be reused.
@@ -179,7 +182,7 @@ All errors return a consistent JSON envelope:
 
 ## Testing
 
-The project includes 62 unit tests covering all core services. Tests run against an in-memory H2 database - no Docker required.
+The project includes 65 unit tests covering all core services. Tests run against an in-memory H2 database - no Docker required.
 
 ```bash
 ./mvnw test
@@ -187,8 +190,8 @@ The project includes 62 unit tests covering all core services. Tests run against
 
 Test classes:
 - `TicketServiceTest` - create, update, soft-delete, restore, auto-assignment
-- `ProjectServiceTest` - CRUD, soft-delete, restore
-- `DependencyServiceTest` - add, remove, validation rules
+- `ProjectServiceTest` - CRUD, soft-delete, restore, cascade to tickets
+- `DependencyServiceTest` - add, remove, validation rules, cycle detection
 - `CommentServiceTest` - mentions, CRUD
 - `EscalationServiceTest` - priority escalation, overdue flag
 - `UserServiceTest` - CRUD

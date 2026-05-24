@@ -4,7 +4,11 @@ import com.att.tdp.issueflow.dto.project.CreateProjectRequest;
 import com.att.tdp.issueflow.dto.project.ProjectResponse;
 import com.att.tdp.issueflow.dto.project.UpdateProjectRequest;
 import com.att.tdp.issueflow.entity.Project;
+import com.att.tdp.issueflow.entity.Ticket;
 import com.att.tdp.issueflow.entity.User;
+import com.att.tdp.issueflow.enums.TicketPriority;
+import com.att.tdp.issueflow.enums.TicketStatus;
+import com.att.tdp.issueflow.enums.TicketType;
 import com.att.tdp.issueflow.enums.UserRole;
 import com.att.tdp.issueflow.exception.ResourceNotFoundException;
 import com.att.tdp.issueflow.repository.ProjectRepository;
@@ -17,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -174,6 +179,31 @@ class ProjectServiceTest {
         verify(projectRepository, never()).save(any());
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void softDeleteProject_cascadesToActiveTickets() {
+        User owner = owner(1L);
+        Project project = activeProject(3L, "ToDelete", owner);
+        when(projectRepository.findByIdAndDeletedAtIsNull(3L)).thenReturn(Optional.of(project));
+        when(projectRepository.save(any(Project.class))).thenReturn(project);
+
+        Ticket t1 = Ticket.builder().id(1L).title("T1")
+                .status(TicketStatus.TODO).priority(TicketPriority.LOW)
+                .type(TicketType.BUG).project(project).build();
+        Ticket t2 = Ticket.builder().id(2L).title("T2")
+                .status(TicketStatus.IN_PROGRESS).priority(TicketPriority.MEDIUM)
+                .type(TicketType.FEATURE).project(project).build();
+        when(ticketRepository.findByProjectIdAndDeletedAtIsNull(3L)).thenReturn(List.of(t1, t2));
+
+        projectService.softDeleteProject(3L, actor());
+
+        ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
+        verify(ticketRepository).saveAll(captor.capture());
+        List<Ticket> saved = (List<Ticket>) captor.getValue();
+        assertThat(saved).hasSize(2);
+        assertThat(saved).allMatch(t -> t.getDeletedAt() != null);
+    }
+
     // ==================================================================
     // restoreProject
     // ==================================================================
@@ -210,6 +240,30 @@ class ProjectServiceTest {
                 .hasMessageContaining("5");
 
         verify(projectRepository, never()).save(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void restoreProject_cascadesToDeletedTickets() {
+        User owner = owner(1L);
+        Project deleted = activeProject(4L, "Deleted", owner);
+        deleted.setDeletedAt(LocalDateTime.now().minusDays(1));
+        when(projectRepository.findById(4L)).thenReturn(Optional.of(deleted));
+        when(projectRepository.save(any(Project.class))).thenReturn(deleted);
+
+        Ticket t1 = Ticket.builder().id(1L).title("T1")
+                .status(TicketStatus.TODO).priority(TicketPriority.LOW)
+                .type(TicketType.BUG).project(deleted)
+                .deletedAt(LocalDateTime.now().minusDays(1)).build();
+        when(ticketRepository.findByProjectIdAndDeletedAtIsNotNull(4L)).thenReturn(List.of(t1));
+
+        projectService.restoreProject(4L, actor());
+
+        ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
+        verify(ticketRepository).saveAll(captor.capture());
+        List<Ticket> saved = (List<Ticket>) captor.getValue();
+        assertThat(saved).hasSize(1);
+        assertThat(saved.get(0).getDeletedAt()).isNull();
     }
 
     @Test

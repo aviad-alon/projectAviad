@@ -123,6 +123,30 @@ class DependencyServiceTest {
         verify(dependencyRepository, never()).save(any());
     }
 
+    @Test
+    void addDependency_wouldCreateCycle_throwsIllegalArgumentException() {
+        // Existing state: ticket 20 is blocked by ticket 10 (20 <- 10)
+        // Attempting: ticket 10 blocked by ticket 20 (10 <- 20) - direct cycle
+        Project proj = project(1L);
+        Ticket t10 = ticket(10L, proj);
+        Ticket t20 = ticket(20L, proj);
+
+        when(ticketService.findActiveTicketOrThrow(10L)).thenReturn(t10);
+        when(ticketService.findActiveTicketOrThrow(20L)).thenReturn(t20);
+        when(dependencyRepository.existsByTicketIdAndBlockedById(10L, 20L)).thenReturn(false);
+        // BFS starts from 20 (newBlockerId). findBlockerIdsByTicketId(20) returns [10]
+        // because ticket 20 is already blocked by 10.
+        // Next iteration: current=10, which equals ticketId=10 -> cycle detected.
+        when(dependencyRepository.findBlockerIdsByTicketId(20L)).thenReturn(List.of(10L));
+
+        assertThatThrownBy(() -> dependencyService.addDependency(10L,
+                AddDependencyRequest.builder().blockedBy(20L).build(), actor()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("circular");
+
+        verify(dependencyRepository, never()).save(any());
+    }
+
     // ==================================================================
     // removeDependency
     // ==================================================================

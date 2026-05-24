@@ -23,4 +23,9 @@ public interface TicketDependencyRepository extends JpaRepository<TicketDependen
     boolean existsByTicketIdAndBlockedById(
             @Param("ticketId") Long ticketId,
             @Param("blockedById") Long blockedById);
+
+    /** Returns only the IDs of tickets that directly block the given ticket.
+     *  Used by the BFS cycle-detection algorithm in DependencyService. */
+    @Query("SELECT d.blockedBy.id FROM TicketDependency d WHERE d.ticket.id = :ticketId")
+    List<Long> findBlockerIdsByTicketId(@Param("ticketId") Long ticketId);
 }

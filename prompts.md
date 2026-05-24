@@ -16,15 +16,15 @@ This file documents the prompts used throughout the development of the IssueFlow
 
 I have a homework assignment for the AT&T TDP 2026 program located in my current working directory. The project is called IssueFlow - a ticket management backend platform.
 
-Please do the following:
-
 Read and analyze all project files - including the PDF requirements document, both the issueflow-java/ and issueflow-typescript/ skeleton projects, all READMEs, pom.xml, package.json, source files, and configuration files.
 
-Explain the assignment clearly - what needs to be built, what APIs are required, what special features are needed (soft delete, auto-assignment, auto-escalation, mentions, JWT auth, CSV import/export), and what is already provided vs. what needs to be implemented from scratch.
+Then do the following:
 
-Create a comprehensive implementation plan - ordered by dependencies, with time estimates, for completing the entire project within 1.5 days. I chose to implement in Java (Spring Boot).
+1. Explain the assignment clearly - what needs to be built, what APIs are required, what special features are needed (soft delete, auto-assignment, auto-escalation, mentions, JWT auth, CSV import/export), and what is already provided vs. what needs to be implemented.
 
-Generate a PDF guide in English that covers: a plain-English explanation of the assignment, the full system architecture diagram, package/folder hierarchy, all required API endpoints with descriptions, step-by-step build order, how to use AI effectively during development (with example prompts), what to write in prompts.md and run.md, a priority checklist (MUST / SHOULD / NICE), and key technical tips and Spring Boot annotation reference.
+2. Create a 3-day implementation plan ordered by dependencies, where each day focuses on a distinct layer or feature set - allowing me to go deep into each topic before moving on. I chose to implement in Java (Spring Boot).
+
+3. Generate a PDF guide in English covering: a plain-English explanation of the assignment, the full system architecture diagram, package/folder hierarchy, all required API endpoints with descriptions, step-by-step build order, and key technical tips and Spring Boot annotation reference.
 
 ---
 
@@ -611,3 +611,34 @@ Three gaps in auto-assignment:
 `UpdateProjectRequest` and `UpdateTicketRequest` have no constraints. Sending `{"name": ""}` silently sets the name to an empty string.
 
 Use `@Size(min = 1, message = "...")` (not `@NotBlank`) on the `name` field in `UpdateProjectRequest` and `title` in `UpdateTicketRequest`. The reason for `@Size` over `@NotBlank` is that `@Size` treats `null` as valid - so omitting the field in a PATCH request still passes validation, preserving partial-update semantics. `@NotBlank` would incorrectly reject absent fields.
+
+---
+
+## Prompt 11 - Swagger / OpenAPI Interactive Documentation
+
+Add interactive API documentation to the project using springdoc-openapi.
+
+1. Add the dependency `springdoc-openapi-starter-webmvc-ui:2.8.3` to `pom.xml`.
+2. Create `OpenApiConfig.java` in a new `config/` package. Configure the OpenAPI bean with: title "IssueFlow API", description with auth instructions (create user, login, authorize), version "1.0.0", contact name "Aviad Alon". Apply a global `bearerAuth` JWT security scheme so every secured endpoint shows the lock icon in Swagger UI.
+3. Update `SecurityConfig` to permit unauthenticated access to `/swagger-ui.html`, `/swagger-ui/**`, and `/v3/api-docs/**`.
+4. Add springdoc configuration to `application.yaml`: set `swagger-ui.path`, `try-it-out-enabled: true`, and `api-docs.path`. Change `sql.init.mode` from `always` to `never` (Hibernate `ddl-auto: update` manages the schema; `schema.sql` is documentation-only, and Spring Boot 3 throws an error on comment-only SQL init scripts).
+
+Swagger UI accessible at `http://localhost:8080/swagger-ui/index.html`.
+
+---
+
+## Prompt 12 - System-Level Improvements
+
+Two architectural improvements identified by comparing the project against a peer implementation:
+
+### 12.1 - BFS Circular Dependency Detection
+
+`DependencyService.addDependency` validates self-reference, same-project, and duplicates - but does NOT detect transitive cycles. Adding A blocked-by B and B blocked-by C and then C blocked-by A would create an unresolvable deadlock graph.
+
+Fix: add `findBlockerIdsByTicketId(@Param("ticketId") Long ticketId)` to `TicketDependencyRepository` (JPQL: `SELECT d.blockedBy.id FROM TicketDependency d WHERE d.ticket.id = :ticketId`). Add private `wouldCreateCycle(Long ticketId, Long newBlockerId)` to `DependencyService`: BFS starting from `newBlockerId`, following the existing blocker chain at each step. If `ticketId` is reached, the proposed edge would close a loop - throw `IllegalArgumentException`. Add test: `addDependency_wouldCreateCycle_throwsIllegalArgumentException`.
+
+### 12.2 - Cascaded Soft Delete for Projects
+
+`ProjectService.softDeleteProject` sets `deletedAt` on the project but leaves all its tickets active. Similarly, `restoreProject` only restores the project record.
+
+Fix: in `softDeleteProject`, after saving the project, fetch all active tickets via `findByProjectIdAndDeletedAtIsNull` and bulk-set their `deletedAt` to the same timestamp; call `saveAll`. In `restoreProject`, after saving the project, fetch all deleted tickets via `findByProjectIdAndDeletedAtIsNotNull` and clear their `deletedAt`; call `saveAll`. Both methods are already `@Transactional`. Add tests: `softDeleteProject_cascadesToActiveTickets` and `restoreProject_cascadesToDeletedTickets`.

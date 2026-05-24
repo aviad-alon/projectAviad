@@ -5,6 +5,7 @@ import com.att.tdp.issueflow.dto.project.ProjectResponse;
 import com.att.tdp.issueflow.dto.project.UpdateProjectRequest;
 import com.att.tdp.issueflow.dto.project.WorkloadEntry;
 import com.att.tdp.issueflow.entity.Project;
+import com.att.tdp.issueflow.entity.Ticket;
 import com.att.tdp.issueflow.entity.User;
 import com.att.tdp.issueflow.exception.ResourceNotFoundException;
 import com.att.tdp.issueflow.repository.ProjectRepository;
@@ -100,9 +101,15 @@ public class ProjectService {
     @Transactional
     public void softDeleteProject(Long id, User currentUser) {
         Project project = findActiveProjectOrThrow(id);
+        LocalDateTime now = LocalDateTime.now();
 
-        project.setDeletedAt(LocalDateTime.now());
+        project.setDeletedAt(now);
         projectRepository.save(project);
+
+        // Cascade soft-delete to all active tickets in this project
+        List<Ticket> activeTickets = ticketRepository.findByProjectIdAndDeletedAtIsNull(id);
+        activeTickets.forEach(t -> t.setDeletedAt(now));
+        ticketRepository.saveAll(activeTickets);
 
         auditLogService.log("DELETE", "PROJECT", id, currentUser);
     }
@@ -121,6 +128,11 @@ public class ProjectService {
 
         project.setDeletedAt(null);
         Project saved = projectRepository.save(project);
+
+        // Cascade restore to all soft-deleted tickets in this project
+        List<Ticket> deletedTickets = ticketRepository.findByProjectIdAndDeletedAtIsNotNull(id);
+        deletedTickets.forEach(t -> t.setDeletedAt(null));
+        ticketRepository.saveAll(deletedTickets);
 
         auditLogService.log("RESTORE", "PROJECT", saved.getId(), currentUser);
 

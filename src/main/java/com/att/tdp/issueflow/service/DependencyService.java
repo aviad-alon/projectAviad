@@ -13,7 +13,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -64,6 +68,12 @@ public class DependencyService {
                     " is already blocked by " + blockedById);
         }
 
+        // Prevent circular dependencies using BFS over the existing dependency graph
+        if (wouldCreateCycle(ticketId, blockedById)) {
+            throw new IllegalArgumentException(
+                    "Cannot add dependency: would create a circular dependency involving ticket " + ticketId);
+        }
+
         TicketDependency dependency = TicketDependency.builder()
                 .ticket(ticket)
                 .blockedBy(blockedBy)
@@ -90,5 +100,35 @@ public class DependencyService {
 
         dependencyRepository.delete(dependency);
         auditLogService.log("DELETE", "DEPENDENCY", ticketId, currentUser);
+    }
+
+    // ---------------------------------------------------------------
+    // BFS cycle detection  (internal)
+    // ---------------------------------------------------------------
+
+    /**
+     * Returns true if adding the edge  ticketId <- newBlockerId  would create a cycle.
+     *
+     * Strategy: perform a BFS starting from newBlockerId and follow the existing
+     * "blocked-by" chain (i.e. what transitively blocks newBlockerId).
+     * If we ever reach ticketId, the proposed edge would close a loop.
+     *
+     * Example: A<-B, B<-C already exist.  Adding C<-A would form A<-B<-C<-A.
+     * BFS starting from A: A->B (blocks A)->C (blocks B) -> reaches C == ticketId? No.
+     * Wait, we are checking addDependency(C, A), so ticketId=C, newBlockerId=A.
+     * BFS from A: findBlockerIds(A)=[B], findBlockerIds(B)=[C] -> current==C -> true.
+     */
+    private boolean wouldCreateCycle(Long ticketId, Long newBlockerId) {
+        Set<Long> visited = new HashSet<>();
+        Queue<Long> queue = new LinkedList<>();
+        queue.add(newBlockerId);
+
+        while (!queue.isEmpty()) {
+            Long current = queue.poll();
+            if (current.equals(ticketId)) return true;
+            if (!visited.add(current)) continue;   // already processed, skip
+            dependencyRepository.findBlockerIdsByTicketId(current).forEach(queue::add);
+        }
+        return false;
     }
 }
