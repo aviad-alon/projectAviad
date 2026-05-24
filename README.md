@@ -1,6 +1,10 @@
 <h1 align="center">IssueFlow</h1>
 <p align="center">Ticket Management Backend Platform - AT&T TDP 2026</p>
-<p align="center">by <strong>Aviad Alon</strong> &nbsp;|&nbsp; <a href="https://aviad-alon.vercel.app" target="_blank">Get to know me more</a></p>
+<div align="center">
+<table><tr><td align="center">
+<h3>by <strong>Aviad Alon</strong> &nbsp;|&nbsp; <a href="https://aviad-alon.vercel.app" target="_blank">Get to know me more</a></h3>
+</td></tr></table>
+</div>
 
 ---
 
