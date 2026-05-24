@@ -35,6 +35,23 @@ Built with Java 21 and Spring Boot. 69 unit tests, no Spring context.
 
 ---
 
+## System Flow
+
+```mermaid
+flowchart LR
+    Client([Client]) -->|HTTP + JWT| JWTFilter[JWT Filter]
+    JWTFilter -->|invalid / missing| Err1([401 / 403])
+    JWTFilter -->|valid| Controller[Controller]
+    Controller -->|RBAC check| Service[Service Layer]
+    Service -->|read / write| Repository[Repository]
+    Repository <-->|SQL| DB[(PostgreSQL)]
+    Service -.->|every write| AuditLog[(Audit Log)]
+    Service -.->|ticket created without assignee| AutoAssign[Auto-Assignment]
+    Scheduler([Scheduler every 60s]) -.->|escalate overdue tickets| Service
+```
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
