@@ -10,7 +10,23 @@
 
 ## Overview
 
-IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It handles the usual CRUD operations, but also includes things like circular dependency detection between tickets, soft-delete with full restore, status transition rules, auto-assignment of tickets to the least busy developer, and a background job that escalates overdue tickets automatically. The project has 69 unit tests and no Spring context loaded in tests.
+IssueFlow is a backend service designed to handle a lightweight project and issue tracking platform. The system manages users, projects, tickets (issues), comments on tickets, audit logs, ticket dependencies, attachments, and bulk ticket import/export.
+
+Built with Java 21 and Spring Boot, it exposes a set of REST APIs that together cover the full lifecycle of a software project's work items:
+
+- **Users & Auth** — JWT-based authentication with token invalidation on logout; role-based access control (`ADMIN` / `DEVELOPER`).
+- **Projects** — top-level containers that group related tickets; support soft-delete with full cascade restore.
+- **Tickets** — the core work item. Enforces forward-only status transitions, blocks closure when unresolved dependencies exist, and validates that only `DEVELOPER`-role users can be assigned.
+- **Comments** — full CRUD on ticket comments; `@username` mentions are parsed, validated, and stored as relations so they can be queried per user.
+- **Dependencies** — ticket-to-ticket blocker relationships with BFS cycle detection to prevent circular dependency chains.
+- **Attachments** — file uploads scoped to a ticket (PNG, JPEG, PDF, TXT; max 10 MB).
+- **Audit Log** — append-only record of every state-changing action in the system, filterable by entity type, entity ID, or action name.
+- **CSV Export / Import** — bulk ticket export and import via CSV for a given project.
+- **Soft Delete & Restore** — tickets and projects are never permanently deleted; `ADMIN` users can list and restore them at any time.
+- **Auto-Assignment** — tickets created without an explicit assignee are automatically assigned to the `DEVELOPER` with the fewest open tickets in that project.
+- **Auto-Escalation** — a background scheduler runs every 60 seconds and promotes overdue tickets one priority level (`LOW → MEDIUM → HIGH → CRITICAL`).
+
+The project ships with 69 unit tests (Mockito, no Spring context).
 
 > **Setup & run instructions:** see [run.md](run.md)
 
