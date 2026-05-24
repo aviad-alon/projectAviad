@@ -55,9 +55,9 @@ IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It
 
 | Description | Method | Endpoint | Request Body | Response |
 |-------------|--------|----------|-------------|---------|
-| Login - obtain JWT | POST | `/auth/login` | `{ "username": "jdoe", "password": "secret" }` | `{ "accessToken": "...", "tokenType": "Bearer", "expiresIn": 3600 }` |
+| Login - obtain JWT | POST | `/auth/login` | `{ "username": "jdoe", "password": "secret" }` | `{ "accessToken": "...", "tokenType": "Bearer", "expiresIn": 3600 }` (`200`) |
 | Logout - invalidate token | POST | `/auth/logout` | - | `200 OK` |
-| Get current user | GET | `/auth/me` | - | User object |
+| Get current user | GET | `/auth/me` | - | User object (`200`) |
 
 ---
 
@@ -65,12 +65,12 @@ IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It
 
 | Description | Method | Endpoint | Request Body | Response |
 |-------------|--------|----------|-------------|---------|
-| Get all users | GET | `/users` | - | List of user objects |
-| Get user by ID | GET | `/users/:userId` | - | User object |
+| Get all users | GET | `/users` | - | List of user objects (`200`) |
+| Get user by ID | GET | `/users/:userId` | - | User object (`200`) |
 | Create a user | POST | `/users` | `{ "username", "email", "fullName", "password", "role" }` | Created user (`201`) |
-| Update a user | PATCH | `/users/:userId` | `{ "fullName", "role" }` | Updated user object |
+| Update a user | PATCH | `/users/:userId` | `{ "fullName", "role" }` | Updated user object (`200`) |
 | Delete a user | DELETE | `/users/:userId` | - | `204 No Content` |
-| Get mentions for a user | GET | `/users/:userId/mentions?page=0&pageSize=10` | - | Paginated list of comments |
+| Get mentions for a user | GET | `/users/:userId/mentions?page=0&pageSize=10` | - | Paginated list of comments (`200`) |
 
 ---
 
@@ -78,14 +78,14 @@ IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It
 
 | Description | Method | Endpoint | Request Body | Response |
 |-------------|--------|----------|-------------|---------|
-| Get all projects | GET | `/projects` | - | List of project objects |
-| Get project by ID | GET | `/projects/:projectId` | - | Project object |
+| Get all projects | GET | `/projects` | - | List of project objects (`200`) |
+| Get project by ID | GET | `/projects/:projectId` | - | Project object (`200`) |
 | Create a project | POST | `/projects` | `{ "name", "description", "ownerId" }` | Created project (`201`) |
-| Update a project | PATCH | `/projects/:projectId` | `{ "name", "description" }` | Updated project object |
+| Update a project | PATCH | `/projects/:projectId` | `{ "name", "description" }` | Updated project object (`200`) |
 | Soft-delete a project | DELETE | `/projects/:projectId` | - | `204 No Content` |
-| Get workload report | GET | `/projects/:projectId/workload` | - | Workload summary object |
-| List deleted projects | GET | `/projects/deleted` | - | List of deleted project objects |
-| Restore a project | POST | `/projects/:projectId/restore` | - | Restored project object |
+| Get workload report | GET | `/projects/:projectId/workload` | - | Workload summary object (`200`) |
+| List deleted projects | GET | `/projects/deleted` | - | List of deleted project objects (`200`) |
+| Restore a project | POST | `/projects/:projectId/restore` | - | Restored project object (`200`) |
 
 ---
 
@@ -93,15 +93,15 @@ IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It
 
 | Description | Method | Endpoint | Request Body | Response |
 |-------------|--------|----------|-------------|---------|
-| Get tickets by project | GET | `/tickets?projectId=:id` | - | List of ticket objects |
-| Get ticket by ID | GET | `/tickets/:ticketId` | - | Ticket object |
+| Get tickets by project | GET | `/tickets?projectId=:id` | - | List of ticket objects (`200`) |
+| Get ticket by ID | GET | `/tickets/:ticketId` | - | Ticket object (`200`) |
 | Create a ticket | POST | `/tickets` | `{ "title", "description", "status", "priority", "type", "projectId", "assigneeId"?, "dueDate"? }` | Created ticket (`201`) |
-| Update a ticket | PATCH | `/tickets/:ticketId` | Any subset of create fields | Updated ticket object |
+| Update a ticket | PATCH | `/tickets/:ticketId` | Any subset of create fields | Updated ticket object (`200`) |
 | Soft-delete a ticket | DELETE | `/tickets/:ticketId` | - | `204 No Content` |
-| Export tickets to CSV | GET | `/tickets/export?projectId=:id` | - | CSV file download |
-| Import tickets from CSV | POST | `/tickets/import` | `multipart/form-data: file, projectId` | Import summary object |
-| List deleted tickets | GET | `/tickets/deleted?projectId=:id` | - | List of deleted ticket objects |
-| Restore a ticket | POST | `/tickets/:ticketId/restore` | - | Restored ticket object |
+| Export tickets to CSV | GET | `/tickets/export?projectId=:id` | - | CSV file download (`200`) |
+| Import tickets from CSV | POST | `/tickets/import` | `multipart/form-data: file, projectId` | Import summary object (`200`) |
+| List deleted tickets | GET | `/tickets/deleted?projectId=:id` | - | List of deleted ticket objects (`200`) |
+| Restore a ticket | POST | `/tickets/:ticketId/restore` | - | Restored ticket object (`200`) |
 
 **Ticket enums:**
 - `status`: `TODO` | `IN_PROGRESS` | `IN_REVIEW` | `DONE`
@@ -114,9 +114,9 @@ IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It
 
 | Description | Method | Endpoint | Request Body | Response |
 |-------------|--------|----------|-------------|---------|
-| Get comments for ticket | GET | `/tickets/:ticketId/comments` | - | List of comment objects |
+| Get comments for ticket | GET | `/tickets/:ticketId/comments` | - | List of comment objects (`200`) |
 | Add a comment | POST | `/tickets/:ticketId/comments` | `{ "content": "Hello @jdoe!" }` | Created comment (`201`) |
-| Update a comment | PATCH | `/tickets/:ticketId/comments/:commentId` | `{ "content": "..." }` | Updated comment object |
+| Update a comment | PATCH | `/tickets/:ticketId/comments/:commentId` | `{ "content": "..." }` | Updated comment object (`200`) |
 | Delete a comment | DELETE | `/tickets/:ticketId/comments/:commentId` | - | `204 No Content` |
 
 `@username` mentions in comment content are automatically resolved to user records and returned in `mentionedUsers`.
@@ -128,7 +128,7 @@ IssueFlow is a ticket management REST API built with Java 21 and Spring Boot. It
 | Description | Method | Endpoint | Request Body | Response |
 |-------------|--------|----------|-------------|---------|
 | Add a dependency | POST | `/tickets/:ticketId/dependencies` | `{ "blockedBy": 42 }` | Created dependency (`201`) |
-| List dependencies | GET | `/tickets/:ticketId/dependencies` | - | List of dependency objects |
+| List dependencies | GET | `/tickets/:ticketId/dependencies` | - | List of dependency objects (`200`) |
 | Remove a dependency | DELETE | `/tickets/:ticketId/dependencies/:blockerId` | - | `204 No Content` |
 
 Rules: both tickets must belong to the same project; self-dependencies and duplicates are rejected.
@@ -150,7 +150,7 @@ Allowed types: `image/png`, `image/jpeg`, `application/pdf`, `text/plain`. Max s
 
 | Description | Method | Endpoint | Query Params | Response |
 |-------------|--------|----------|-------------|---------|
-| Get audit logs | GET | `/audit-logs` | `entityType`, `entityId`, `action` (all optional) | List of audit log objects |
+| Get audit logs | GET | `/audit-logs` | `entityType`, `entityId`, `action` (all optional) | List of audit log objects (`200`) |
 
 Logged actions: `CREATE`, `UPDATE`, `DELETE`, `RESTORE`, `ADD_COMMENT`, `AUTO_ESCALATE`, `UPLOAD_ATTACHMENT`, `AUTO_ASSIGN`.
 
