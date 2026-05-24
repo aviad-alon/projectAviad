@@ -55,7 +55,7 @@ public class CommentController {
             @Valid @RequestBody UpdateCommentRequest request,
             @AuthenticationPrincipal UserDetails principal) {
         User currentUser = userService.findByUsernameOrThrow(principal.getUsername());
-        return ResponseEntity.ok(commentService.updateComment(commentId, request, currentUser));
+        return ResponseEntity.ok(commentService.updateComment(ticketId, commentId, request, currentUser));
     }
 
     // DELETE /api/tickets/{ticketId}/comments/{commentId}
@@ -65,7 +65,7 @@ public class CommentController {
             @PathVariable Long commentId,
             @AuthenticationPrincipal UserDetails principal) {
         User currentUser = userService.findByUsernameOrThrow(principal.getUsername());
-        commentService.deleteComment(commentId, currentUser);
+        commentService.deleteComment(ticketId, commentId, currentUser);
         return ResponseEntity.noContent().build();
     }
 

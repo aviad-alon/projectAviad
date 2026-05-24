@@ -146,6 +146,10 @@ public class TicketService {
             User newAssignee = userRepository.findById(request.getAssigneeId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Assignee not found: " + request.getAssigneeId()));
+            if (newAssignee.getRole() != UserRole.DEVELOPER) {
+                throw new IllegalArgumentException(
+                        "Assignee must be a DEVELOPER (userId=" + request.getAssigneeId() + ")");
+            }
             ticket.setAssignee(newAssignee);
         }
 
@@ -203,9 +207,7 @@ public class TicketService {
         }
 
         // Collect all DEVELOPER users in the system
-        List<User> developers = userRepository.findAll().stream()
-                .filter(u -> u.getRole() == UserRole.DEVELOPER)
-                .collect(Collectors.toList());
+        List<User> developers = userRepository.findByRole(UserRole.DEVELOPER);
 
         if (developers.isEmpty()) {
             return null;   // no developers available - leave unassigned

@@ -10,6 +10,7 @@ import com.att.tdp.issueflow.entity.User;
 import com.att.tdp.issueflow.exception.ResourceNotFoundException;
 import com.att.tdp.issueflow.repository.ProjectRepository;
 import com.att.tdp.issueflow.repository.TicketRepository;
+import com.att.tdp.issueflow.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,6 +28,7 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final TicketRepository  ticketRepository;
+    private final UserRepository    userRepository;
     private final UserService       userService;
     private final AuditLogService   auditLogService;
 
@@ -126,13 +130,18 @@ public class ProjectService {
             throw new IllegalStateException("Project is not deleted: " + id);
         }
 
+        LocalDateTime cascadeTimestamp = project.getDeletedAt();
         project.setDeletedAt(null);
         Project saved = projectRepository.save(project);
 
-        // Cascade restore to all soft-deleted tickets in this project
-        List<Ticket> deletedTickets = ticketRepository.findByProjectIdAndDeletedAtIsNotNull(id);
-        deletedTickets.forEach(t -> t.setDeletedAt(null));
-        ticketRepository.saveAll(deletedTickets);
+        // Restore only tickets that were deleted as part of this project's cascade
+        // (i.e. their deletedAt matches the project's deletion timestamp exactly)
+        List<Ticket> cascadeDeleted = ticketRepository.findByProjectIdAndDeletedAtIsNotNull(id)
+                .stream()
+                .filter(t -> cascadeTimestamp.equals(t.getDeletedAt()))
+                .collect(Collectors.toList());
+        cascadeDeleted.forEach(t -> t.setDeletedAt(null));
+        ticketRepository.saveAll(cascadeDeleted);
 
         auditLogService.log("RESTORE", "PROJECT", saved.getId(), currentUser);
 
@@ -148,14 +157,19 @@ public class ProjectService {
         // Returns rows of [assigneeId (Long), count (Long)]
         List<Object[]> rows = ticketRepository.countOpenTicketsPerAssigneeInProject(projectId);
 
+        // Fetch all relevant users in a single query instead of one per row
+        List<Long> userIds = rows.stream().map(row -> (Long) row[0]).collect(Collectors.toList());
+        Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+
         return rows.stream()
                 .map(row -> {
                     Long userId = (Long) row[0];
                     long count  = (Long) row[1];
-                    User user   = userService.findUserOrThrow(userId);
+                    User user   = userMap.get(userId);
                     return WorkloadEntry.builder()
                             .userId(userId)
-                            .username(user.getUsername())
+                            .username(user != null ? user.getUsername() : "unknown")
                             .openTicketCount(count)
                             .build();
                 })

@@ -69,9 +69,13 @@ public class CommentService {
     // UPDATE a comment's content
     // ---------------------------------------------------------------
     @Transactional
-    public CommentResponse updateComment(Long commentId, UpdateCommentRequest request, User currentUser) {
+    public CommentResponse updateComment(Long ticketId, Long commentId, UpdateCommentRequest request, User currentUser) {
+        ticketService.findActiveTicketOrThrow(ticketId);
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comment not found: " + commentId));
+        if (!comment.getTicket().getId().equals(ticketId)) {
+            throw new ResourceNotFoundException("Comment " + commentId + " does not belong to ticket " + ticketId);
+        }
 
         comment.setContent(request.getContent());
         comment.setMentionedUsers(parseMentions(request.getContent()));
@@ -85,9 +89,13 @@ public class CommentService {
     // DELETE a comment
     // ---------------------------------------------------------------
     @Transactional
-    public void deleteComment(Long commentId, User currentUser) {
+    public void deleteComment(Long ticketId, Long commentId, User currentUser) {
+        ticketService.findActiveTicketOrThrow(ticketId);
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comment not found: " + commentId));
+        if (!comment.getTicket().getId().equals(ticketId)) {
+            throw new ResourceNotFoundException("Comment " + commentId + " does not belong to ticket " + ticketId);
+        }
         commentRepository.delete(comment);
         auditLogService.log("DELETE", "COMMENT", commentId, currentUser);
     }

@@ -99,9 +99,8 @@ check "Backward transition → 400" '"status":400' "$R"
 # 11. Add a comment
 echo ""
 echo "--- Comments ---"
-AUTHOR_ID=$(curl -s "$BASE/users" -H "$AUTH" | grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
 R=$(curl -s -X POST "$BASE/tickets/$TICKET_ID/comments" -H "Content-Type: application/json" -H "$AUTH" \
-  -d "{\"authorId\":$AUTHOR_ID,\"content\":\"This is a comment @dev1\"}")
+  -d "{\"content\":\"This is a comment @dev1\"}")
 check "Add comment with mention" '"content"' "$R"
 COMMENT_ID=$(echo "$R" | grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
 
