@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -41,7 +42,8 @@ public class ProjectController {
         return ResponseEntity.ok(projectService.getAllActiveProjects());
     }
 
-    // GET /api/projects/deleted  - MUST be declared before /{id}
+    // GET /api/projects/deleted  - ADMIN only, MUST be declared before /{id}
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/deleted")
     public ResponseEntity<List<ProjectResponse>> getDeletedProjects() {
         return ResponseEntity.ok(projectService.getDeletedProjects());
@@ -73,7 +75,8 @@ public class ProjectController {
         return ResponseEntity.noContent().build();
     }
 
-    // POST /api/projects/{id}/restore  - admin
+    // POST /api/projects/{id}/restore  - ADMIN only
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/restore")
     public ResponseEntity<ProjectResponse> restoreProject(
             @PathVariable Long id,

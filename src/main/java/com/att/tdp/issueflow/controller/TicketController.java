@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -39,7 +40,8 @@ public class TicketController {
                 .body(ticketService.createTicket(request, currentUser));
     }
 
-    // GET /api/tickets/deleted  - MUST be declared before /{id}
+    // GET /api/tickets/deleted  - ADMIN only, MUST be declared before /{id}
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/deleted")
     public ResponseEntity<List<TicketResponse>> getDeletedTickets(@RequestParam Long projectId) {
         return ResponseEntity.ok(ticketService.getDeletedTicketsByProject(projectId));
@@ -86,7 +88,8 @@ public class TicketController {
         return ResponseEntity.noContent().build();
     }
 
-    // POST /api/tickets/{id}/restore
+    // POST /api/tickets/{id}/restore  - ADMIN only
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/restore")
     public ResponseEntity<TicketResponse> restoreTicket(
             @PathVariable Long id,
